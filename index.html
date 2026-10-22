@@ -1,0 +1,2229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harness Atlas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #05070d; --panel: rgba(13, 18, 30, 0.82); --border: rgba(120, 140, 180, 0.22);
+    --ink: #e8ecf8; --ink2: #9aa7c0; --ink3: #5f6f85; --accent: #5b92ef;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); }
+  canvas { display: block; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    padding: 14px 16px; z-index: 30; }
+
+  #hud { top: 18px; left: 18px; width: 285px; }
+  #hud h1 { font-size: 13px; letter-spacing: 0.28em; font-weight: 600; }
+  #hud .sub { font-size: 10.5px; color: var(--ink3); margin-top: 6px; line-height: 1.7; }
+  #hud .sub b { color: var(--ink2); font-weight: 500; }
+  #tabs { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+  .tab { font: inherit; font-size: 9.5px; letter-spacing: 0.1em; padding: 4px 9px;
+    border-radius: 6px; border: 1px solid var(--border); background: transparent;
+    color: var(--ink2); cursor: pointer; text-transform: uppercase; }
+  .tab.on { color: var(--ink); border-color: var(--accent); background: rgba(91,146,239,0.15); }
+
+  #layers { top: 18px; right: 18px; width: 208px; }
+  #dirToggle { margin-top: 8px; width: 100%; font: inherit; font-size: 10px; padding: 4px 0;
+    border-radius: 6px; border: 1px solid var(--border); background: transparent;
+    color: var(--ink2); cursor: pointer; letter-spacing: 0.1em; text-transform: uppercase; }
+  #dirToggle:hover { color: var(--ink); border-color: var(--accent); }
+  #directory { position: fixed; top: 18px; right: 236px; width: 300px; max-height: 70vh;
+    overflow-y: auto; display: none; }
+  #directory.show { display: block; }
+  #directory .drow { display: flex; align-items: center; gap: 7px; font-size: 10.5px;
+    padding: 2.5px 5px; border-radius: 4px; cursor: pointer; color: var(--ink2); }
+  #directory .drow:hover { background: rgba(120,140,180,0.12); color: var(--ink); }
+  #directory .drow .ty { margin-left: auto; font-size: 9px; color: var(--ink3); }
+  #layers .cl { font-size: 9px; letter-spacing: 0.15em; color: var(--ink3); text-transform: uppercase; margin-bottom: 6px; }
+  .lrow { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 6px;
+    font-size: 11px; color: var(--ink2); cursor: pointer; }
+  .lrow:hover { background: rgba(120,140,180,0.12); }
+  .lrow.off { opacity: 0.3; }
+  .lrow .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
+  .lrow .n { margin-left: auto; color: var(--ink3); font-size: 10px; }
+
+  #detail { top: 18px; right: 236px; width: 420px; display: none; }
+  #detail.show { display: block; }
+  #detail h2 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  #detail .type-tag { font-size: 9px; letter-spacing: 0.15em; padding: 2px 7px; border-radius: 4px;
+    background: rgba(120,140,180,0.15); color: var(--ink2); text-transform: uppercase; }
+  #detail .desc { font-size: 11px; color: var(--ink2); line-height: 1.65; margin-top: 8px; }
+  #detail .path { font-size: 10px; color: var(--ink3); margin-top: 8px; word-break: break-all; }
+  #detail .path a { color: var(--accent); text-decoration: none; }
+  #detail .meta { font-size: 10px; color: var(--ink3); margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+  #detail .conn { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+  #detail .conn .cl { font-size: 9px; letter-spacing: 0.15em; color: var(--ink3); text-transform: uppercase; }
+  #detail .conn ul { list-style: none; padding: 0; margin-top: 6px; max-height: 130px; overflow-y: auto; }
+  #detail .conn li { font-size: 10.5px; padding: 2.5px 4px; border-radius: 4px; cursor: pointer;
+    color: var(--ink2); display: flex; gap: 6px; }
+  #detail .conn li:hover { background: rgba(120,140,180,0.12); color: var(--ink); }
+  #detail .conn li .k { color: var(--ink3); margin-left: auto; font-size: 9px; }
+  #detail .close { position: absolute; top: 10px; right: 12px; cursor: pointer; color: var(--ink3); font-size: 13px; }
+  #detail .close:hover { color: var(--ink); }
+
+  #search { top: 18px; left: 50%; transform: translateX(-50%); width: 420px; padding: 8px 12px; }
+  #search input { width: 100%; background: transparent; border: none; outline: none;
+    color: var(--ink); font: inherit; font-size: 12px; }
+  #search input::placeholder { color: var(--ink3); }
+  #search .results { margin-top: 6px; max-height: 180px; overflow-y: auto; }
+  #search .r { font-size: 11px; padding: 3px 5px; border-radius: 4px; cursor: pointer;
+    color: var(--ink2); display: flex; align-items: center; gap: 7px; }
+  #search .r:hover { background: rgba(120,140,180,0.14); color: var(--ink); }
+  #search .r .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+  #tooltip { position: fixed; pointer-events: none; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font-size: 10.5px;
+    color: var(--ink); z-index: 40; display: none; backdrop-filter: blur(10px); }
+  #tooltip .tt { font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink3); }
+
+  #crumb { bottom: 18px; left: 50%; transform: translateX(-50%); display: none;
+    font-size: 10.5px; color: var(--ink2); align-items: center; gap: 6px; }
+  #crumb.show { display: flex; }
+  #crumb a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  #crumb .sep { color: var(--ink3); }
+
+  .shell-label { position: fixed; pointer-events: none; z-index: 5; font-size: 9.5px;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink3);
+    text-shadow: 0 0 8px rgba(0,0,0,0.95); transform: translate(-50%, -50%); white-space: nowrap; }
+  #leaderSvg { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+  .callout { position: fixed; z-index: 7; pointer-events: auto; background: rgba(13,18,30,0.9);
+    border: 1px solid rgba(120,140,180,0.35); border-radius: 10px; padding: 8px 12px;
+    backdrop-filter: blur(12px); max-width: 285px; transition: opacity 0.25s; }
+  .callout.collapsed .d { display: none; }
+  .callout:hover .d { display: block !important; }
+  .callout.collapsed:hover { max-width: 320px; }
+  .callout .t { font-size: 11.5px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; }
+  .callout .d { font-size: 11px; color: var(--ink2); line-height: 1.6; margin-top: 5px; }
+  .callout.spotlight { border-width: 2px; box-shadow: 0 0 30px rgba(91,146,239,0.25); }
+
+  #tourCard { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 45;
+    display: none; width: 560px; padding: 18px 22px; }
+  #tourCard.show { display: block; }
+  #tourCard .step { font-size: 9.5px; letter-spacing: 0.2em; color: var(--ink3); text-transform: uppercase; }
+  #tourCard h3 { font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 6px; }
+  #tourCard .body { font-size: 12.5px; color: var(--ink2); line-height: 1.7; margin-top: 8px; }
+  #tourCard .body b { color: var(--ink); font-weight: 600; }
+  #tourCard .nav { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+  #tourCard button { font: inherit; font-size: 10.5px; padding: 5px 14px; border-radius: 6px;
+    border: 1px solid var(--accent); background: rgba(91,146,239,0.15); color: var(--ink); cursor: pointer; }
+  #tourCard button:hover { background: rgba(91,146,239,0.3); }
+  #tourCard .prog { margin-left: auto; font-size: 9.5px; color: var(--ink3); }
+
+  #tourBtn { margin-top: 8px; width: 100%; font: inherit; font-size: 11px; padding: 6px 0;
+    border-radius: 6px; border: 1px solid #00a37a; background: rgba(0,163,122,0.12);
+    color: #7fd4ff; cursor: pointer; letter-spacing: 0.12em; text-transform: uppercase; }
+  #tourBtn:hover { background: rgba(0,183,194,0.28); }
+
+  #hint { bottom: 18px; left: 18px; font-size: 11px; color: var(--ink2); background: none;
+    border: none; backdrop-filter: none; padding: 0; line-height: 1.8; }
+  .nlabel { position: fixed; pointer-events: none; z-index: 5; font-size: 10px;
+    color: var(--ink); text-shadow: 0 0 6px rgba(0,0,0,0.9); transform: translate(-50%, -160%);
+    white-space: nowrap; letter-spacing: 0.06em; }
+  #clusterView { position: fixed; inset: 0; z-index: 25; }
+  #clusterFrame { width: 100%; height: 100%; border: none; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="hud" class="panel">
+  <h1>HARNESS ATLAS</h1>
+  <div class="sub" style="font-size:11.5px;color:var(--ink)">One human. 12 agents. 70 skills. 120 scripts. 103k-doc memory. 17 senses. One organism.</div>
+  <div class="sub" id="stats">loading…</div>
+  <button id="tourBtn">▶ Take the tour</button>
+  <div id="tabs">
+    <button class="tab on" data-v="anatomy">Anatomy</button>
+    <button class="tab" data-v="organism">Organism</button>
+    <button class="tab" data-v="kbfractal">KB Fractal</button>
+    <button class="tab" data-v="cluster">Cluster v1</button>
+  </div>
+</div>
+<div id="layers" class="panel"><div class="cl">Layers</div></div>
+<div id="search" class="panel"><input id="q" placeholder="search…  ( / )"><div class="results" id="qr"></div></div>
+<div id="detail" class="panel" style="left:auto;transform:none">
+  <span class="close" id="dclose">✕</span>
+  <h2><span id="dlabel"></span><span class="type-tag" id="dtag"></span></h2>
+  <div class="desc" id="ddesc"></div>
+  <div class="path" id="dpath"></div>
+  <div class="meta" id="dmeta"></div>
+  <div id="lineage" style="margin-top:9px;font-size:10px;color:var(--ink2);line-height:1.7"></div>
+  <div class="conn" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><div class="cl">connections</div><ul id="dconns"></ul></div>
+</div>
+<div id="tooltip"><span class="tt" id="tt-type"></span><br><span id="tt-label"></span></div>
+<div id="crumb" class="panel"></div>
+<div id="hint" class="panel">
+  drag rotate · scroll zoom · right-drag pan · click node → detail<br>
+  click layer to hide · double-click kb source → drill in · 5 views share one live graph<br>
+  in FLOW view: particle glow + speed = recent file activity
+</div>
+<svg id="leaderSvg"></svg>
+<div id="tourCard" class="panel">
+  <div class="step" id="tour-step"></div>
+  <h3 id="tour-title"><span id="tour-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#7fd4ff;margin-right:8px;box-shadow:0 0 8px #7fd4ff"></span><span id="tour-title-t" style="color:var(--ink)"></span></h3>
+  <div class="body" id="tour-body"></div>
+  <div class="nav">
+    <button id="tour-prev">← back</button>
+    <button id="tour-next">next →</button>
+    <button id="tour-exit" style="border-color:var(--border);color:var(--ink3)">exit</button>
+    <span class="prog" id="tour-prog"></span>
+  </div>
+</div>
+<div id="clusterView" class="hidden"><iframe id="clusterFrame"></iframe></div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+
+// ================================================================ constants
+const TYPES = {
+  central:   { c: "#e8ecf8", size: 13 },
+  agent:     { c: "#5b92ef", size: 11 },
+  skill:     { c: "#00a37a", size: 9 },
+  script:    { c: "#644fb1", size: 7 },
+  hook:      { c: "#b64253", size: 10 },
+  knowledge: { c: "#00929d", size: 9 },
+  kdoc:      { c: "#3fb5c4", size: 5.5 },
+  memory:    { c: "#9b3876", size: 6 },
+  mcp:       { c: "#ca6a10", size: 11 },
+  plugin:    { c: "#ca6a10", size: 7 },
+  cron:      { c: "#5f6f85", size: 8 },
+  surface:   { c: "#8c9bb0", size: 9 },
+  kb:        { c: "#4379d3", size: 12 },
+  "kb-source": { c: "#7fa6e8", size: 9 },
+  "kb-cluster": { c: "#7fa6e8", size: 6 },
+  doc:       { c: "#a9c4ee", size: 4 },
+  external:  { c: "#54627e", size: 13 },
+};
+const LAYERS = [   // v13 color script: bioluminescent warm core -> cool periphery
+  { id: "heart",       name: "The Heart",              nature: "the brain — consciousness",          c: "#ffd9a0", r: 0,   floor: 480 },
+  { id: "mind",        name: "The Mind",               nature: "neurons firing — the session loop",  c: "#ffb454", r: 0,   floor: 350 },
+  { id: "reflexes",    name: "Reflexes & Regulation",  nature: "muscle memory + the brainstem",      c: "#ff5a8a", r: 0,   floor: 220 },
+  { id: "hands",       name: "The Hands (Fleet)",      nature: "the immune + endocrine system",      c: "#35e0a1", r: 0,   floor: 90 },
+  { id: "metabolism",  name: "The Metabolism",         nature: "the autonomic nervous system",       c: "#8a7cf0", r: 0,   floor: -40 },
+  { id: "memory",      name: "Memory Organs",          nature: "the connectome — what it remembers", c: "#22d3ee", r: 0,   floor: -170 },
+  { id: "corpus",      name: "The Corpus",             nature: "the gut — 103k digested external documents", c: "#5b8cff", r: 0, floor: -330 },
+  { id: "senses",      name: "The Senses",             nature: "sensory organs and limbs",           c: "#f2557a", r: 0,   floor: -490 },
+  { id: "world",       name: "The World",              nature: "the environment",                    c: "#7a8db4", r: 0,   floor: -650 },
+];
+const R = Object.fromEntries(LAYERS.map(l => [l.id, l.r]));
+const FLOOR = Object.fromEntries(LAYERS.map(l => [l.id, l.floor]));
+
+const CORE = new Set(["central:josh", "central:claude-md"]);
+const ORCH = new Set(["script:orchestration-router.py", "script:mission-control.py",
+  "script:bus_post.py", "script:gossip-read.py", "script:gossip-actuate.py"]);  // mito-ring hubs
+// lineage: parentOf gives every node EXACTLY one parent (fixes 'out of place' clicks)
+const PARENT = {};
+function setParent(id, p) { PARENT[id] = p; }
+function parentOf(n) {
+  if (PARENT[n.id]) return PARENT[n.id];
+  if (n.id === "central:josh") return null;
+  if (n.type === "session-neuron") return "node:session";
+  if (n.type === "skill") return "node:session";
+  if (n.type === "agent") return "node:session";
+  if (n.type === "hook") return "central:claude-md";
+  if (n.type === "cron" || n.type === "script") return "node:metabolism";
+  if (n.type === "mcp") return "node:session";
+  if (n.type === "external") { const src = links.find(l => l.t === n.id); return src ? src.s : "node:senses"; }
+  if (n.type === "memory") return "central:memory-index";
+  if (n.type === "kdoc" || n.type === "knowledge") return "node:memory-organs";
+  if (n.type === "kb-source" || n.type === "kb") return "node:corpus";
+  if (n.type === "surface") return "central:mission-control";
+  if (n.type === "plugin") return "node:session";
+  return "node:session";
+}
+
+function layerOf(n) {
+  if (n.id === "central:josh") return "heart";
+  if (n.id === "central:claude-md" || n.id === "node:session") return "mind";
+  if (n.type === "session-neuron") return "mind";
+  if (n.type === "skill" || n.type === "hook") return "reflexes";
+  if (n.type === "agent") return "hands";
+  if (n.id === "central:bus" || n.id === "central:mission-control" || n.type === "cron") return "mind";
+  if (n.type === "script" || n.type === "plugin") return "metabolism";
+  if (["kb", "kb-source", "kb-cluster", "doc"].includes(n.type)) return "corpus";
+  if (["memory", "kdoc", "knowledge", "surface", "central:memory-index", "central:index"].includes(n.type) || n.id === "central:index") return "memory";
+  if (n.type === "mcp") return "senses";
+  if (n.type === "external") return "world";
+  return "memory";
+}
+
+const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
+
+// ================================================================ shared state
+// STATIC_MODE: when served from a static host (not localhost), fetch pre-baked data files
+const STATIC_MODE = new URLSearchParams(location.search).has('static') || !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+let nodes = [], links = [], byId = new Map();
+let heat = {};
+let selected = null, activeView = "anatomy";
+const offLayers = new Set();
+const nodeColor = new Map(), nodeLayer = new Map();
+const POS = {};           // view -> Map(id -> Vector3)
+let atlasPoints = null;   // ONE shared point cloud, repositioned per view
+let atlasDims, atlasSizes, atlasColors, atlasPosArr;
+let edgeGroups = {};      // view -> THREE.Group
+let morph = null;         // position morph animation between layouts
+
+// ================================================================ renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#05070d");
+scene.fog = new THREE.FogExp2(0x05070d, 0.00045);
+// lighting rig: physical materials need real light
+scene.add(new THREE.AmbientLight(0x2a3348, 1.4));
+const keyLight = new THREE.PointLight(0x8fb8ff, 2.2, 3000, 1.6); keyLight.position.set(400, 500, 700); scene.add(keyLight);
+const fillLight = new THREE.PointLight(0xff9a5a, 0.9, 2600, 1.8); fillLight.position.set(-500, -250, -400); scene.add(fillLight);
+const rimLight = new THREE.DirectionalLight(0x7fd4ff, 3.0); rimLight.position.set(-300, 200, -900); scene.add(rimLight);
+// nebula backdrop: giant inverted sphere with a painted radial haze
+{
+  const cv = document.createElement("canvas"); cv.width = cv.height = 1024;
+  const ctx = cv.getContext("2d");
+  const g1 = ctx.createRadialGradient(512, 380, 60, 512, 512, 720);
+  g1.addColorStop(0, "#0d1526"); g1.addColorStop(0.45, "#070b16"); g1.addColorStop(1, "#030409");
+  ctx.fillStyle = g1; ctx.fillRect(0, 0, 1024, 1024);
+  for (let i = 0; i < 130; i++) {   // faint nebula wisps
+    const x = Math.random() * 1024, y = Math.random() * 1024, r = 40 + Math.random() * 180;
+    const g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const hue = 260 + Math.random() * 40;
+    g2.addColorStop(0, `hsla(${hue}, 45%, 32%, ${0.028 + Math.random() * 0.03})`);
+    g2.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(7000, 32, 32),
+    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false }));
+  scene.add(sky);
+}
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 12000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.9, 0.4, 0.55);
+composer.addPass(bloom);
+
+{ // starfield
+  const N = 1000, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = 2400 + Math.random() * 3400;
+    const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    pos.set([r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph), r * Math.sin(ph) * Math.sin(th)], i * 3);
+    const f = 0.25 + Math.random() * 0.5;
+    col.set([f * 0.5, f * 0.6, f], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({
+    size: 2, vertexColors: true, transparent: true, opacity: 0.28,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending })));
+}
+
+// ================================================================ shared point cloud
+function nodeRadius(n) {
+  const t = TYPES[n.type] || TYPES.surface;
+  let r = t.size;
+  if (n.docs) r += Math.min(6, Math.log2(n.docs + 1) * 1.1);
+  return r;
+}
+const TIER_BOOST = { heart: 7.0, mind: 2.0, hands: 1.8, senses: 1.7, world: 2.3 };
+function makeAtlasPoints() {
+  const N = nodes.length;
+  atlasPosArr = new Float32Array(N * 3);
+  atlasSizes = new Float32Array(N);
+  atlasColors = new Float32Array(N * 3);
+  atlasDims = new Float32Array(N).fill(1);
+  nodes.forEach((n, i) => {
+    atlasSizes[i] = nodeRadius(n) * (TIER_BOOST[layerOf(n)] || 1.35);
+    const c = nodeColor.get(n.id);
+    atlasColors.set([c.r, c.g, c.b], i * 3);
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(atlasPosArr, 3));
+  geo.setAttribute("aColor", new THREE.BufferAttribute(atlasColors, 3));
+  geo.setAttribute("aSize", new THREE.BufferAttribute(atlasSizes, 1));
+  geo.setAttribute("aDim", new THREE.BufferAttribute(atlasDims, 1));
+  const mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      attribute vec3 aColor; attribute float aSize; attribute float aDim;
+      varying vec3 vColor; varying float vDim; varying float vCore;
+      void main() {
+        vColor = aColor; vDim = aDim;
+        vCore = clamp(9.0 / aSize, 0.3, 1.0);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * (1150.0 / -mv.z) * (0.75 + 0.25 * aDim);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vColor; varying float vDim; varying float vCore;
+      void main() {
+        float d = length(gl_PointCoord - 0.5) * 2.0;
+        if (d > 1.0) discard;
+        float core = smoothstep(0.5, 0.0, d) * vCore;
+        float halo = pow(smoothstep(1.0, 0.0, d), 2.6);
+        vec3 c = vColor * (0.5 * halo + 0.95 * core) + vec3(1.0) * core * core * 0.5;
+        gl_FragColor = vec4(c * vDim, (halo * 0.55 + core) * vDim);
+      }`,
+  });
+  atlasPoints = new THREE.Points(geo, mat);
+  atlasPoints.frustumCulled = false;
+  scene.add(atlasPoints);
+}
+function writeLayoutToBuffer(viewKey) {
+  const m = POS[viewKey];
+  nodes.forEach((n, i) => {
+    const p = m.get(n.id);
+    if (p) atlasPosArr.set([p.x, p.y, p.z], i * 3);
+  });
+  atlasPoints.geometry.getAttribute("position").needsUpdate = true;
+}
+function applyDims() {
+  nodes.forEach((n, i) => atlasDims[i] = offLayers.has(nodeLayer.get(n.id)) ? 0.04 : 1);
+  atlasPoints.geometry.getAttribute("aDim").needsUpdate = true;
+}
+
+// ================================================================ layouts
+function layoutAnatomy() {
+  const m = new Map();
+  // synthetic anatomy hubs (the labeled organs of the model)
+  const HUBS = [
+    ["node:session",       "The Mind — the session loop",      "mind"],
+    ["node:memory-organs", "The Memory Organs",                "memory"],
+    ["node:metabolism",    "The Metabolism",                   "metabolism"],
+    ["node:senses",        "The Senses — MCP",                 "senses"],
+    ["node:corpus",        "The Corpus — the gut",             "corpus"],
+  ];
+  for (const [id, label, tier] of HUBS) {
+    if (!byId.has(id)) {
+      const n = { id, type: "central", label, synthetic: true };
+      byId.set(id, n); nodes.push(n);
+      nodeLayer.set(id, tier);
+      nodeColor.set(id, new THREE.Color(LAYERS.find(l => l.id === tier).c));
+    }
+  }
+  setParent("node:session", "central:josh");
+  setParent("central:claude-md", "central:josh");
+  setParent("node:memory-organs", "node:session");
+  setParent("node:corpus", "node:session");
+  setParent("node:metabolism", "node:session");
+  setParent("node:senses", "node:session");
+  setParent("central:bus", "node:session");
+  setParent("central:mission-control", "node:session");
+  setParent("central:memory-index", "node:memory-organs");
+  setParent("central:index", "node:memory-organs");
+  for (const l of links) {
+    if (l.kind === "runs" && l.s.startsWith("skill:")) setParent(l.t, l.s);
+    if (l.kind === "documents" && l.s.startsWith("agent:")) setParent(l.t, l.s);
+    if (l.kind === "guards") setParent(l.s, "central:claude-md");
+  }
+  // ---- grid-plate layout: per tier, nodes grouped by parent, packed in rows
+  const tierIdx = n => LAYERS.findIndex(l => l.id === layerOf(n));
+  const byTier = {};
+  for (const n of nodes) (byTier[tierIdx(n)] = byTier[tierIdx(n)] || []).push(n);
+  // parents first (topological: tiers are already depth-ordered)
+  const parentX = { "central:josh": [0, 0] };
+  for (let t = 0; t < LAYERS.length; t++) {
+    const list = byTier[t] || [];
+    if (!list.length) continue;
+    // group by parent; groups sorted by parent id for stable layout
+    const groups = {};
+    for (const n of list) { const p = parentOf(n) || "central:josh"; (groups[p] = groups[p] || []).push(n); }
+    const gkeys = Object.keys(groups).sort();
+    const N = list.length;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(N * 2.6)));    // ~2.6:1 plate aspect
+    const rows = Math.ceil(N / cols);
+    const MINW = { 0: 300, 1: 760, 2: 640, 3: 700, 6: 760, 7: 680 };  // thin tiers hold real territory
+    // cells GROW to fill the plate: big plates = spread-out tissue (Josh: use the plane)
+    const plateW = Math.max(MINW[t] || 0, cols * 15);
+    const rowsFit = Math.max(1, rows);
+    const plateD = Math.max(210, rowsFit * (plateW / cols) * 0.75);
+    const CELL = plateW / cols;                                  // cells stretch to the plate
+    const cellD = plateD / rowsFit;
+    // plate x centers under parent centroid if known
+    const pcents = gkeys.filter(k => parentX[k]).map(k => parentX[k]);
+    const pcx = pcents.length ? pcents.reduce((a, b) => a + b[0], 0) / pcents.length : 0;
+    const pcz = pcents.length ? pcents.reduce((a, b) => a + b[1], 0) / pcents.length : 0;
+    const x0 = pcx - plateW / 2, z0 = pcz - plateD / 2;
+    let i = 0;
+    for (const gk of gkeys) {
+      for (const n of groups[gk]) {
+        const cxx = x0 + (i % cols) * CELL + CELL / 2;
+        const czz = z0 + Math.floor(i / cols) * cellD + cellD / 2;
+        m.set(n.id, new THREE.Vector3(
+          cxx + (hash(n.id + "ox") - 0.5) * 7,
+          LAYERS[t].floor + (hash(n.id + "y") - 0.5) * 18,
+          czz + (hash(n.id + "oz") - 0.5) * 7));
+        if (!parentX[gk]) parentX[gk] = [cxx, czz];
+        i++;
+      }
+    }
+    // remember each node's own cell for its children's centroid math
+    for (const n of list) { const p = m.get(n.id); parentX[n.id] = [p.x, p.z]; }
+    // slab geometry stored on the tier
+    SLAB[t] = { x0, z0, w: plateW, d: plateD, cx: pcx, cz: pcz };
+  }
+  // corpus organ: 41 source colonies arranged as a mini-mycelium ring inside the slab
+  const corpusNodes = (byTier[6] || []).filter(n => n.type === "kb-source").sort((a, b) => (b.docs || 0) - (a.docs || 0));
+  const cs = SLAB[6];
+  const cR = cs ? Math.max(cs.w, cs.d) / 2 * 0.72 : 180;
+  corpusNodes.forEach((n, i) => {
+    const a = i / corpusNodes.length * Math.PI * 2 + hash(n.id) * 0.3;
+    const rr = cR * (0.62 + 0.38 * hash(n.id + "rr"));
+    m.set(n.id, new THREE.Vector3(cs.cx + Math.cos(a) * rr, LAYERS[6].floor + (hash(n.id + "y") - 0.5) * 20, cs.cz + Math.sin(a) * rr));
+  });
+  // tighten: stack the tiers as a totem — every tier's centroid dead on the axis
+  for (let t = 1; t < LAYERS.length; t++) {
+    const tn = nodes.filter(n => layerOf(n) === LAYERS[t].id && m.has(n.id));
+    if (!tn.length) continue;
+    const cx = tn.reduce((a2, n) => a2 + m.get(n.id).x, 0) / tn.length;
+    const cz = tn.reduce((a2, n) => a2 + m.get(n.id).z, 0) / tn.length;
+    tn.forEach(n => { const p = m.get(n.id); p.x -= cx; p.z -= cz; });
+    if (SLAB[t]) { SLAB[t].cx -= cx; SLAB[t].cz -= cz; SLAB[t].x0 -= cx; SLAB[t].z0 -= cz; }
+  }
+  // organ chain: one center per tier, heart -> world (drives the unified circulation)
+  ORGAN_CHAIN = LAYERS.map((L, t) => ({ tier: t,
+    center: SLAB[t] ? new THREE.Vector3(SLAB[t].cx, L.floor, SLAB[t].cz) : new THREE.Vector3(0, L.floor, 0) }));
+  return m;
+}
+const SLAB = {};
+let ORGAN_CHAIN = [];   // [{tier, center}] heart->world; drives the unified circulation
+
+// anatomy plate: slabs hug their grids; bundled connectors parent->child rows
+function tierFootprint() { return SLAB; }
+
+function edgesAnatomy() {
+  const g = new THREE.Group();
+  const counts = {};
+  nodes.forEach(n => { const t = layerOf(n); counts[t] = (counts[t] || 0) + 1; });
+
+  // ---- slabs sized to their grid, label ON the plate
+  for (let t = 0; t < LAYERS.length; t++) {
+    const sl = SLAB[t];
+    if (!sl) continue;
+    const L = LAYERS[t];
+    const w = sl.w + 90, d = sl.d + 70;
+    // living membrane: noise-displaced organic shell hugging the organ
+    const rmaj = Math.max(w, d) / 2;
+    const memb = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48),
+      new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, side: THREE.FrontSide, blending: THREE.AdditiveBlending,
+        uniforms: { uTime: { value: 0 },
+                    uTint: { value: new THREE.Color(L.c).lerp(new THREE.Color(0x8a93b8), 0.35) },
+                    uScale: { value: new THREE.Vector3(rmaj + 12, 70, (d / w) * rmaj + 12) } },
+        vertexShader: `
+          uniform float uTime; uniform vec3 uScale; varying vec3 vN; varying vec3 vP;
+          float n3(vec3 p){ return sin(p.x*2.1+uTime*0.4)*cos(p.y*1.7-uTime*0.3)*0.5 + sin(p.z*2.6+uTime*0.25)*0.5; }
+          void main(){
+            vec3 p = position * uScale;
+            p += normal * n3(position * 3.0) * 6.0;
+            vP = p; vN = normal;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+          }`,
+        fragmentShader: `
+          uniform vec3 uTint; varying vec3 vN; varying vec3 vP;
+          void main(){
+            vec3 V = normalize(cameraPosition - vP);
+            float fres = pow(1.0 - abs(dot(V, normalize(vN))), 2.0);
+            gl_FragColor = vec4(uTint * (0.25 + fres * 0.9), 0.05 + fres * 0.14);
+          }`,
+      }));
+    memb.position.set(sl.cx, L.floor, sl.cz);
+    g.add(memb);
+    const cv = document.createElement("canvas");
+    cv.width = 1024; cv.height = 256;
+    const ctx = cv.getContext("2d");
+    ctx.font = "700 62px ui-monospace, Menlo, monospace";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0,0,0,0.9)"; ctx.shadowBlur = 14;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(L.name.toUpperCase(), 14, 52);
+    ctx.shadowBlur = 0;
+    ctx.font = "36px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = L.c;
+    ctx.fillText(L.nature, 16, 130);
+    ctx.fillStyle = "rgba(205,214,232,0.85)";
+    ctx.fillText(`${counts[L.id] || 0} parts · every thread = serves`, 16, 186);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: 0.99, depthWrite: false }));
+    spr.scale.set(255, 64, 1);
+    spr.position.set(sl.x0 - 175, L.floor + 8, sl.cz + sl.d / 2);
+    g.add(spr);
+  }
+
+  const _c = new THREE.Color();
+  // ---- cytoplasm: thin filaments between nearest neighbors inside each tier
+  for (let t = 0; t < LAYERS.length; t++) {
+    const tierNodes = nodes.filter(n => layerOf(n) === LAYERS[t].id && POS.anatomy.get(n.id));
+    const P = tierNodes.map(n => POS.anatomy.get(n.id));
+    const filPos = [], filCol = [];
+    for (let a = 0; a < tierNodes.length; a++) {
+      // 2 nearest neighbors (O(n^2) once — fine at these sizes)
+      const d2 = [];
+      for (let b = 0; b < tierNodes.length; b++) {
+        if (a === b) continue;
+        const dx = P[a].x - P[b].x, dy = P[a].y - P[b].y, dz = P[a].z - P[b].z;
+        d2.push([dx * dx + dy * dy + dz * dz, b]);
+      }
+      d2.sort((x, y) => x[0] - y[0]);
+      _c.set(LAYERS[t].c).multiplyScalar(0.42);
+      for (const [dd, b] of d2.slice(0, 2)) {
+        if (dd > 40 * 40) continue;              // only local strands
+        filPos.push(P[a].x, P[a].y, P[a].z, P[b].x, P[b].y, P[b].z);
+        filCol.push(_c.r, _c.g, _c.b, _c.r, _c.g, _c.b);
+      }
+    }
+    const fg = new THREE.BufferGeometry();
+    fg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(filPos), 3));
+    fg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(filCol), 3));
+    g.add(new THREE.LineSegments(fg, new THREE.LineBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })));
+  }
+
+  // ---- connectors: parent cell -> each child cell, bundled by parent group
+  const trunkGeos = [], twigPos = [], twigDepth = [], twigCol = [];
+  const kidsOf = {};
+  for (const n of nodes) {
+    const p = parentOf(n);
+    if (p) (kidsOf[p] = kidsOf[p] || []).push(n);
+  }
+  const tierIdxOf = n => LAYERS.findIndex(l => l.id === layerOf(n));
+  for (const [pid, kids] of Object.entries(kidsOf)) {
+    const a = POS.anatomy.get(pid);
+    if (!a) continue;
+    const pk = byId.get(pid);
+    const pTier = Math.max(0, tierIdxOf(pk || { id: pid }));
+    const big = kids.length > 8;
+    if (big) {
+      // bundle: one tube from parent down to the child tier plate, then twigs
+      const cx = kids.reduce((s2, k) => s2 + POS.anatomy.get(k.id).x, 0) / kids.length;
+      const cz = kids.reduce((s2, k) => s2 + POS.anatomy.get(k.id).z, 0) / kids.length;
+      const cy = LAYERS[Math.min(pTier + 1, 8)].floor + 40;
+      const curve = new THREE.CatmullRomCurve3([
+        a.clone(),
+        new THREE.Vector3(a.x * 0.5 + cx * 0.5, a.y * 0.3 + cy * 0.7, a.z * 0.5 + cz * 0.5),
+        new THREE.Vector3(cx, cy, cz),
+      ]);
+      const tube = new THREE.TubeGeometry(curve, 16, Math.min(5.5, 1.4 + kids.length * 0.03), 8, false);
+      colorizeTube(tube, LAYERS[Math.min(pTier + 1, 8)].c, 0.8);
+      trunkGeos.push(tube);
+    }
+    for (const k of kids) {
+      const b = POS.anatomy.get(k.id);
+      if (!b) continue;
+      const dTier = tierIdxOf(k);
+      twigPos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      twigDepth.push(dTier / 8, dTier / 8);
+      _c.set(LAYERS[dTier].c).multiplyScalar(0.8);
+      twigCol.push(_c.r, _c.g, _c.b, _c.r, _c.g, _c.b);
+    }
+  }
+  function colorizeTube(geo, hex, mul) {
+    const cnt = geo.getAttribute("position").count;
+    const col = new Float32Array(cnt * 3);
+    const c = new THREE.Color(hex).multiplyScalar(mul);
+    for (let i = 0; i < cnt; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  }
+  const merged = new THREE.BufferGeometry();
+  {
+    let total = 0;
+    trunkGeos.forEach(gg => total += gg.getAttribute("position").count);
+    const pos = new Float32Array(total * 3), col = new Float32Array(total * 3), dep = new Float32Array(total);
+    let off = 0;
+    trunkGeos.forEach(gg => {
+      pos.set(gg.getAttribute("position").array, off * 3);
+      col.set(gg.getAttribute("color").array, off * 3);
+      dep.fill(0.5, off, off + gg.getAttribute("position").count);
+      off += gg.getAttribute("position").count;
+    });
+    merged.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    merged.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    merged.setAttribute("aDepth", new THREE.BufferAttribute(dep, 1));
+  }
+  const pulseMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, vertexColors: true,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      attribute float aDepth; attribute vec3 color;
+      varying float vD; varying vec3 vC;
+      uniform float uTime;
+      void main() {
+        vC = color;
+        float wave = fract(uTime * 0.22 - aDepth * 0.85);
+        vD = 0.5 + 0.9 * smoothstep(0.8, 1.0, wave);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      varying float vD; varying vec3 vC;
+      void main() { gl_FragColor = vec4(vC * vD, vD * 0.85); }`,
+  });
+  if (trunkGeos.length) {
+    const trunks = new THREE.Mesh(merged, pulseMat);
+    trunks.frustumCulled = false;
+    g.add(trunks);
+  }
+  {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(twigPos), 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(twigCol), 3));
+    geo.setAttribute("aDepth", new THREE.BufferAttribute(new Float32Array(twigDepth), 1));
+    const lines = new THREE.LineSegments(geo, pulseMat);
+    lines.frustumCulled = false;
+    g.add(lines);
+  }
+
+  // ---- mind neural web: synapse filaments between session neurons
+  {
+    const mns = nodes.filter(n => n.type === "session-neuron" && POS.anatomy.get(n.id));
+    const synPos = [], synCol = [];
+    const synC = new THREE.Color(0xca6a10).lerp(new THREE.Color(0xffffff), 0.35);
+    for (let a = 0; a < mns.length; a++) {
+      const pa = POS.anatomy.get(mns[a].id);
+      for (let b = a + 1; b < mns.length; b++) {
+        const pb = POS.anatomy.get(mns[b].id);
+        const d2 = pa.distanceToSquared(pb);
+        if (d2 < 42 * 42) {   // local synapse
+          synPos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+          synCol.push(synC.r, synC.g, synC.b, synC.r, synC.g, synC.b);
+        }
+      }
+      // every neuron synapses to the session hub + doctrine (the loop)
+      const hub = POS.anatomy.get("node:session");
+      if (hub) { synPos.push(pa.x, pa.y, pa.z, hub.x, hub.y, hub.z); synCol.push(synC.r, synC.g, synC.b, synC.r, synC.g, synC.b); }
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(synPos), 3));
+    sg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(synCol), 3));
+    g.add(new THREE.LineSegments(sg, new THREE.LineBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })));
+  }
+
+  // ---- organ detailing: heart beacon, hands formation, sense lenses, world orbits
+  {
+    if (!ringTexture) ringTexture = makeRingTexture();
+    const ringSpr = (pos, hex, scale, op) => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ringTexture, color: hex, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending }));
+      sp.scale.set(scale, scale, 1); sp.position.copy(pos); g.add(sp); return sp;
+    };
+    const hj = POS.anatomy.get("central:josh");
+    if (hj) { ringSpr(hj, 0xffd9a8, 130, 0.55); ringSpr(hj, 0xfff1dd, 84, 0.7); }
+    // hands: each agent a soldier in formation — halo ring
+    nodes.filter(n => n.type === "agent").forEach(n => {
+      const p = POS.anatomy.get(n.id);
+      if (p) ringSpr(p, 0x00a37a, 46, 0.4);
+    });
+    // senses: lenses — two concentric rings per MCP server
+    nodes.filter(n => n.type === "mcp").forEach(n => {
+      const p = POS.anatomy.get(n.id);
+      if (p) { ringSpr(p, 0xb64253, 40, 0.45); ringSpr(p, 0xb64253, 62, 0.25); }
+    });
+    // world: orbit rings around each platform
+    nodes.filter(n => n.type === "external").forEach(n => {
+      const p = POS.anatomy.get(n.id);
+      if (p) ringSpr(p, 0x54627e, 95, 0.5);
+    });
+  }
+
+  // ---- corpus organ interior: colony hyphae + density tips (mini-mycelium)
+  {
+    const armGeo = new THREE.CylinderGeometry(0.5, 1.0, 1, 6, 1, true);
+    armGeo.translate(0, 0.5, 0);
+    const srcs = nodes.filter(n => n.type === "kb-source" && POS.anatomy.get(n.id)).sort((x, y) => (y.docs || 0) - (x.docs || 0));
+    const hub = POS.anatomy.get("node:corpus");
+    const corpusC = LAYERS[6].c;
+    // trunk: corpus hub -> each colony root
+    srcs.forEach(n => {
+      const p = POS.anatomy.get(n.id);
+      const d = p.clone().sub(hub);
+      const tm = new THREE.Matrix4(), tq = new THREE.Quaternion();
+      tq.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+      tm.compose(hub, tq, new THREE.Vector3(1.2, d.length(), 1.2));
+      // reuse growHypha-style instancing via a small local InstancedMesh
+    });
+    // fan arms: 4 per colony + density tips
+    const armMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+    const armsPer = 4, total = srcs.length * armsPer * 3;
+    const armMesh = new THREE.InstancedMesh(armGeo, armMat, total);
+    armMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(total * 3), 3);
+    let ai = 0;
+    const tm4 = new THREE.Matrix4(), tq = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), tc = new THREE.Color();
+    srcs.forEach((n, si) => {
+      const p = POS.anatomy.get(n.id);
+      const hubDir = p.clone().sub(hub).normalize();
+      // arms grow OUTWARD from the colony root (away from the corpus hub) for separation
+      const outDir = p.clone().sub(hub).setY(0).normalize();
+      const col = familyColor(n.label);
+      for (let k = 0; k < armsPer; k++) {
+        if (ai >= total - 3) break;
+        const spread = (k / armsPer - 0.5) * 2.2;
+        const dir = outDir.clone().multiplyScalar(Math.cos(spread * 0.5) + 0.35)
+          .add(new THREE.Vector3(-outDir.z, 0, outDir.x).multiplyScalar(Math.sin(spread)))
+          .add(new THREE.Vector3(0, (hash(n.id + k) - 0.4) * 0.7, 0)).normalize();
+        const len = 22 + Math.min(52, Math.log2((n.docs || 1) + 1) * 8);
+        // 2 segments per arm
+        let tip = p.clone();
+        for (let seg2 = 0; seg2 < 2; seg2++) {
+          const nd = dir.clone().add(new THREE.Vector3(hash(n.id + "s" + k + seg2) - 0.5, (hash(n.id + "t" + k + seg2) - 0.5) * 0.7, hash(n.id + "u" + k + seg2) - 0.5).multiplyScalar(0.5)).normalize();
+          const next = tip.clone().add(nd.clone().multiplyScalar(len / 2));
+          tq.setFromUnitVectors(up, nd);
+          const w = 1.1 * (1 - seg2 * 0.45);
+          tm4.compose(tip, tq, new THREE.Vector3(w, len / 2, w));
+          armMesh.setMatrixAt(ai, tm4);
+          tc.setHex(col).multiplyScalar(0.75).lerp(new THREE.Color(0xe8f2ff), 0.3 + seg2 * 0.25);
+          armMesh.instanceColor.setXYZ(ai, tc.r, tc.g, tc.b);
+          ai++;
+          tip = next;
+        }
+        // density tip sprite
+        const spr = new THREE.Sprite(tipMat());
+        spr.material.color = new THREE.Color(col).lerp(new THREE.Color(0xffffff), 0.08);
+        spr.material.opacity = 0.38;
+        const ss = 2.4 + Math.min(8, Math.log2((n.docs || 1) + 1) * 1.2) / (1 + si * 0.02);
+        spr.scale.set(ss, ss, 1);
+        spr.position.copy(tip);
+        g.add(spr);
+      }
+      // colony label for the big ones
+      if (si < 10) colonyLabel(`${n.label} · ${((n.docs || 0) / 1000).toFixed(1)}k`, col, p.clone().add(new THREE.Vector3(0, 26, 0)), si < 5, g);
+    });
+    armMesh.count = ai;
+    armMesh.instanceMatrix.needsUpdate = true;
+    armMesh.instanceColor.needsUpdate = true;
+    armMesh.frustumCulled = false;
+    g.add(armMesh);
+  }
+
+  // ---- ONE BODY: unified skin with gaussian organ bulges (kimi spec §1)
+  {
+    const ext = t => SLAB[t] ? { x: Math.abs(SLAB[t].cx) + SLAB[t].w / 2 + 36, z: Math.abs(SLAB[t].cz) + SLAB[t].d / 2 + 36 } : { x: 120, z: 120 };
+    const exX = Math.max(...ORGAN_CHAIN.map(o => ext(o.tier).x));
+    const exZ = Math.max(...ORGAN_CHAIN.map(o => ext(o.tier).z));
+    const uScale = new THREE.Vector3(exX, 620, exZ);   // hugs the true spread: x and z measured independently
+    const organs = ORGAN_CHAIN.map(o => {
+      const sl = SLAB[o.tier];
+      const rmaj = sl ? Math.max(sl.w, sl.d) / 2 : 60;
+      return { pos: new THREE.Vector3(o.center.x / uScale.x, o.center.y / uScale.y, o.center.z / uScale.z),
+               amp: 24 + rmaj * 0.12, sigma: rmaj * 1.1 };
+    });
+    const skinMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      uniforms: {
+        uTime: { value: 0 }, uScale: { value: uScale },
+        uOrgans: { value: organs.map(o => new THREE.Vector4(o.pos.x, o.pos.y, o.pos.z, o.amp)) },
+        uSigma: { value: organs.map(o => o.sigma) },
+        uBeat: { value: 0 }, uWave: { value: -1 },
+      },
+      vertexShader: `
+        uniform float uTime; uniform vec3 uScale;
+        uniform vec4 uOrgans[9]; uniform float uSigma[9];
+        uniform float uBeat;
+        varying vec3 vN; varying vec3 vP;
+        void main() {
+          vec3 p = position * uScale;
+          float bump = 0.0;
+          for (int i = 0; i < 9; i++) {
+            vec3 d = position - uOrgans[i].xyz;
+            float amp = uOrgans[i].w * (i == 0 ? (1.0 + 0.5 * uBeat) : 1.0);   // chest swell
+            bump += amp * exp(-dot(d, d) / (2.0 * uSigma[i] * uSigma[i]));
+          }
+          float n = sin(p.x*0.012+uTime*0.5)*cos(p.y*0.014+uTime*0.35)*cos(p.z*0.011+uTime*0.4);
+          p += normal * (n * 6.0 + bump);
+          vP = p; vN = normal;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        }`,
+      fragmentShader: `
+        uniform float uBeat; uniform float uWave; uniform vec3 uScale;
+        varying vec3 vN; varying vec3 vP;
+        void main() {
+          vec3 V = normalize(cameraPosition - vP);
+          float fres = pow(1.0 - abs(dot(V, normalize(vN))), 3.5);
+          vec3 tissue = vec3(0.16, 0.14, 0.24);            // smoke-violet dark glass
+          vec3 rim = vec3(0.624, 0.706, 1.0);              // #9fb4ff hot rim
+          vec3 warm = vec3(0.95, 0.62, 0.45);
+          // The Flush: a warm wave traveling heart->world every ~24s
+          float yn = vP.y / uScale.y;
+          float flush = smoothstep(0.09, 0.0, abs(yn - (1.0 - uWave * 2.0))) * step(0.0, uWave);
+          vec3 c = tissue + rim * fres * 1.1 + warm * uBeat * fres * 0.4 + vec3(1.0, 0.6, 0.4) * flush * 0.85;
+          gl_FragColor = vec4(c, 0.018 + fres * 0.30 + flush * 0.30);
+        }`,
+    });    const skin = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), skinMat);
+    skin.position.set(0, -10, 0);
+    skin.renderOrder = 5;
+    g.add(skin);
+    // expose the skin material for the pulse clock + a warm light that beats with the heart
+    ANIM_SKIN = skinMat;
+    heartLight = new THREE.PointLight(0xffb08a, 1.6, 1400, 1.4);
+    heartLight.position.copy(ORGAN_CHAIN[0].center);
+    g.add(heartLight);
+  }
+
+  // ---- interior cytoplasm volume (kimi §2): inverse-fresnel inner shell
+  {
+    const ext2 = t => SLAB[t] ? { x: Math.abs(SLAB[t].cx) + SLAB[t].w / 2 + 36, z: Math.abs(SLAB[t].cz) + SLAB[t].d / 2 + 36 } : { x: 120, z: 120 };
+    const exX2 = Math.max(...ORGAN_CHAIN.map(o => ext2(o.tier).x));
+    const exZ2 = Math.max(...ORGAN_CHAIN.map(o => ext2(o.tier).z));
+    const uScale = new THREE.Vector3(exX2 * 0.94, 620 * 0.94, exZ2 * 0.94);
+    const cyto = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48),
+      new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
+        uniforms: { uScale: { value: uScale } },
+        vertexShader: `
+          uniform vec3 uScale; varying vec3 vN; varying vec3 vP;
+          void main(){ vP = position * uScale; vN = normal;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(vP, 1.0); }`,
+        fragmentShader: `
+          varying vec3 vN; varying vec3 vP;
+          void main(){
+            vec3 V = normalize(cameraPosition - vP);
+            gl_FragColor = vec4(vec3(0.227, 0.247, 0.4), pow(abs(dot(V, normalize(vN))), 1.6) * 0.10); }`,
+      }));
+    cyto.position.set(0, -10, 0);
+    cyto.renderOrder = 4;
+    g.add(cyto);
+  }
+
+  // ---- one circulation: closed aorta through all 8 organs (kimi §3)
+  {
+    const pts = [];
+    for (let t = 0; t < 8; t++) {
+      const C = ORGAN_CHAIN[t].center;
+      pts.push(C.clone(), C.clone().multiply(new THREE.Vector3(1.25, 1, 1.25)));
+    }
+    for (let t = 6; t >= 1; t--) {
+      const C = ORGAN_CHAIN[t].center;
+      pts.push(C.clone().multiply(new THREE.Vector3(-1.25, 1, -1.25)));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts, true, "centripetal");
+    // (no vessel tube: the blood particles imply it — subtraction forces the eye to trace the flow)
+    const N = 840, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), sz = new Float32Array(N);   // pairs: head + comet tail
+    const aorta = new THREE.BufferGeometry();
+    aorta.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    aorta.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    aorta.setAttribute("size", new THREE.BufferAttribute(sz, 1));
+    const bloodPts = new THREE.Points(aorta, new THREE.PointsMaterial({
+      size: 4.2, vertexColors: true, transparent: true, opacity: 0.95,
+      sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    bloodPts.frustumCulled = false;
+    bloodPts.renderOrder = 3;
+    g.add(bloodPts);
+    AORTA = { curve, pts: bloodPts, N, geo: aorta };
+  }
+  return g;
+}
+let ANIM_SKIN = null;
+let AORTA = null;
+let heartLight = null;
+
+// ================================================================ organism
+let organismGroup = null, membraneMat = null, fleetData = null, evoData = null;
+const ORG_CALLOUTS = [
+  { pos: new THREE.Vector3(0, 60, 0), t: "CORE / NUCLEUS", d: "Josh + CLAUDE.md doctrine — the genome. Every gate, every standing order starts here.", c: "#7fd4ff" },
+  { pos: new THREE.Vector3(95, 40, 0), t: "MITOCHONDRIAL RING", d: "Orchestration — mission control, gossip bus, router: converts attention into coordinated action.", c: "#ca6a10" },
+  { pos: new THREE.Vector3(215, 30, 0), t: "THE FLEET", d: "12 autonomous cells — watchers, dreamers, curators, the immune system.", c: "#00a37a" },
+  { pos: new THREE.Vector3(300, 0, 0), t: "CRYSTAL LATTICE", d: "120 scripts + crons + 53 skill-enzymes — the metabolism that turns triggers into work.", c: "#644fb1" },
+  { pos: new THREE.Vector3(400, 0, 0), t: "CORAL / KNOWLEDGE", d: "The knowledge tree + memory — a growing reef of 500+ documents, branching every night.", c: "#00929d" },
+  { pos: new THREE.Vector3(470, 0, 0), t: "MEMBRANE", d: "17 MCP servers — the selectively permeable boundary to the outside world.", c: "#7b1fa2" },
+  { pos: new THREE.Vector3(560, 0, 0), t: "EXTERNAL PLATFORMS", d: "Workato, Jira, Slack, Google, Workday — the environment.", c: "#54627e" },
+  { pos: new THREE.Vector3(160, 30, 40), t: "EVOLUTION LOOP", d: "dream → dissent → decide → build → verify → learn — the circuit that makes the organism improve itself every night.", c: "#6a5bff" },
+];
+function buildOrganism() {
+  organismGroup = new THREE.Group();
+  const nucleusMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      uniform float uTime; varying vec3 vN; varying vec3 vP;
+      // 3-octave simplex-ish noise from sines (no lib needed)
+      float n3(vec3 p) {
+        return sin(p.x*1.3+uTime*0.7)*cos(p.y*1.1+uTime*0.5)*0.5
+             + sin(p.y*2.1-uTime*0.6)*cos(p.z*1.7+uTime*0.3)*0.3
+             + sin(p.z*3.3+uTime*0.9)*cos(p.x*2.7-uTime*0.4)*0.2;
+      }
+      void main() {
+        vec3 p = position;
+        float disp = n3(normalize(position) * 2.2) * 4.5;
+        p += normal * disp;
+        vP = p; vN = normal;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `
+      varying vec3 vN; varying vec3 vP;
+      void main() {
+        vec3 V = normalize(cameraPosition - vP);
+        float fres = pow(1.0 - abs(dot(V, normalize(vN))), 1.8);
+        // organic tissue: deep indigo flesh with cyan subsurface glow + rim
+        vec3 flesh = vec3(0.10, 0.13, 0.30);
+        vec3 sub = vec3(0.20, 0.55, 0.95);
+        vec3 c = flesh + sub * fres * 1.5;
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  const nucleus = new THREE.Mesh(new THREE.IcosahedronGeometry(30, 5), nucleusMat);
+  nucleus.name = "nucleus";
+  organismGroup.add(nucleus);
+  const env = new THREE.Mesh(new THREE.IcosahedronGeometry(36, 1),
+    new THREE.MeshBasicMaterial({ color: 0x7fd4ff, wireframe: true, transparent: true, opacity: 0.35 }));
+  env.name = "envelope";
+  organismGroup.add(env);
+  const hooks = nodes.filter(n => n.type === "hook");
+  const hm = new THREE.InstancedMesh(new THREE.OctahedronGeometry(4.2, 0),
+    new THREE.MeshStandardMaterial({ color: 0x3a1218, emissive: 0xb64253, emissiveIntensity: 0.5, metalness: 0.6, roughness: 0.3 }), hooks.length);
+  const m4 = new THREE.Matrix4();
+  hooks.forEach((n, i) => {
+    const a = hash(n.id) * Math.PI * 2, r = 55 + hash(n.id + "r") * 22;
+    const p = new THREE.Vector3(Math.cos(a) * r, (hash(n.id + "y") - 0.5) * 40, Math.sin(a) * r);
+    m4.makeTranslation(p.x, p.y, p.z);
+    hm.setMatrixAt(i, m4);
+    POS.organism.set(n.id, p);
+  });
+  organismGroup.add(hm);
+  const mito = new THREE.Group();
+  mito.rotation.x = 0.32;
+  mito.add(new THREE.Mesh(new THREE.TorusGeometry(95, 5, 24, 96),
+    new THREE.MeshStandardMaterial({ color: 0x4a3a10, emissive: 0xca6a10, emissiveIntensity: 0.55, roughness: 0.25, metalness: 0.6 })));
+  const hubs = nodes.filter(n => n.type === "central" && !CORE.has(n.id))
+    .concat(nodes.filter(n => ["script:orchestration-router.py", "script:mission-control.py",
+      "script:bus_post.py", "script:gossip-read.py", "script:gossip-actuate.py"].includes(n.id)));
+  hubs.forEach((n, i) => {
+    const a = i / hubs.length * Math.PI * 2;
+    const p = new THREE.Vector3(Math.cos(a) * 95, 0, Math.sin(a) * 95);
+    const crista = new THREE.Mesh(new THREE.TorusGeometry(13, 2.4, 12, 40),
+      new THREE.MeshStandardMaterial({ color: 0x4a3a10, emissive: 0xca6a10, emissiveIntensity: 0.7, flatShading: true }));
+    crista.position.copy(p);
+    crista.rotation.x = Math.PI / 2;
+    mito.add(crista);
+    POS.organism.set(n.id, p.clone().applyEuler(mito.rotation));
+  });
+  organismGroup.add(mito);
+  const agents = nodes.filter(n => n.type === "agent");
+  const cells = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(14, 3),
+    new THREE.MeshPhysicalMaterial({ color: 0x0d4a3a, emissive: 0x00a37a, emissiveIntensity: 0.25,
+      roughness: 0.15, metalness: 0.1, transmission: 0.55, thickness: 8, clearcoat: 0.6,
+      clearcoatRoughness: 0.25, transparent: true, opacity: 0.94 }), agents.length);
+  const nucleos = new THREE.InstancedMesh(new THREE.SphereGeometry(5, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0x001e22, emissive: 0x7fd4ff, emissiveIntensity: 1.0 }), agents.length);
+  agents.forEach((n, i) => {
+    const a = i / agents.length * Math.PI * 2 + hash(n.id) * 0.5;
+    const r = 175 + hash(n.id + "r") * 50;
+    n._cell = new THREE.Vector3(Math.cos(a) * r, (hash(n.id + "y") - 0.5) * 70, Math.sin(a) * r);
+    n._cellPhase = hash(n.id + "p") * Math.PI * 2;
+    n._cellIdx = i;
+    m4.makeTranslation(n._cell.x, n._cell.y, n._cell.z);
+    cells.setMatrixAt(i, m4);
+    nucleos.setMatrixAt(i, m4);
+    POS.organism.set(n.id, n._cell);
+  });
+  organismGroup.add(cells); organismGroup.add(nucleos);
+  fleetData = { cells, agents, m4 };
+  const scripts = nodes.filter(n => n.type === "script" && !ORCH.has(n.id));
+  const crons = nodes.filter(n => n.type === "cron");
+  const skills = nodes.filter(n => n.type === "skill");
+  const e = new THREE.Euler(), q = new THREE.Quaternion();
+  const mk = (geo, mat, list, base) => {
+    if (!list.length) return null;
+    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((n, i) => {
+      const a = hash(n.id) * Math.PI * 2;
+      const r = base + (hash(n.id + "r") - 0.5) * 70;
+      const p = new THREE.Vector3(Math.cos(a) * r, (hash(n.id + "y") - 0.5) * 90, Math.sin(a) * r);
+      e.set(hash(n.id + "e1") * 3, hash(n.id + "e2") * 3, hash(n.id + "e3") * 3);
+      q.setFromEuler(e);
+      m4.compose(p, q, new THREE.Vector3(1, 1, 1));
+      mesh.setMatrixAt(i, m4);
+      POS.organism.set(n.id, p);
+    });
+    organismGroup.add(mesh);
+  };
+  mk(new THREE.BoxGeometry(5, 5, 5, 3, 3, 3), new THREE.MeshStandardMaterial({ color: 0x2a1040, emissive: 0x644fb1, emissiveIntensity: 0.45, metalness: 0.75, roughness: 0.22 }), scripts, 285);
+  mk(new THREE.OctahedronGeometry(7, 1), new THREE.MeshStandardMaterial({ color: 0x40141c, emissive: 0x5f6f85, emissiveIntensity: 0.45, metalness: 0.75, roughness: 0.22 }), crons, 320);
+  mk(new THREE.DodecahedronGeometry(6.5, 1), new THREE.MeshStandardMaterial({ color: 0x1c1440, emissive: 0x8a7cf0, emissiveIntensity: 0.45, metalness: 0.7, roughness: 0.25 }), skills, 250);
+  // coral
+  const branches = [];
+  const tips = nodes.filter(n => ["kdoc", "memory", "knowledge"].includes(n.type));
+  const roots = 9;
+  for (let r = 0; r < roots; r++) {
+    const baseA = r / roots * Math.PI * 2;
+    const root = new THREE.Vector3(Math.cos(baseA) * 340, (hash("root" + r) - 0.5) * 60, Math.sin(baseA) * 340);
+    growCoral(root, root.clone().normalize(), 0, tips.slice(r * Math.floor(tips.length / roots), (r + 1) * Math.floor(tips.length / roots)));
+  }
+  function growCoral(p, dir, depth, myTips) {
+    if (depth >= 3 || myTips.length === 0) return;
+    const len = 34 - depth * 7;
+    const children = depth < 2 ? 2 : (myTips.length > 2 ? 2 : 1);
+    const per = Math.ceil(myTips.length / children);
+    for (let c = 0; c < children; c++) {
+      if (c * per >= myTips.length) break;
+      const j = new THREE.Vector3(hash("b" + p.x + c) - 0.5, hash("b" + p.y + c) - 0.5, hash("b" + p.z + c) - 0.5);
+      const nd = dir.clone().add(j.multiplyScalar(0.85)).normalize();
+      const tip = p.clone().add(nd.clone().multiplyScalar(len));
+      branches.push([p, tip]);
+      if (depth === 2) {
+        myTips.slice(c * per, (c + 1) * per).forEach(n => {
+          const off = new THREE.Vector3(hash(n.id + "x") - 0.5, hash(n.id + "y2") - 0.5, hash(n.id + "z") - 0.5).multiplyScalar(16);
+          POS.organism.set(n.id, tip.clone().add(off));
+        });
+      } else growCoral(tip, nd, depth + 1, myTips.slice(c * per, (c + 1) * per));
+    }
+  }
+  const cyl = new THREE.CylinderGeometry(1.0, 1.7, 1, 8);
+  const cm = new THREE.InstancedMesh(cyl, new THREE.MeshStandardMaterial({ color: 0x06333a, emissive: 0x00929d, emissiveIntensity: 0.3, roughness: 0.55, metalness: 0.15 }), branches.length);
+  const jm = new THREE.InstancedMesh(new THREE.SphereGeometry(1.35, 10, 10), cm.material, branches.length);
+  const up = new THREE.Vector3(0, 1, 0);
+  branches.forEach(([a, b], i) => {
+    const mid = a.clone().add(b).multiplyScalar(0.5);
+    const d = b.clone().sub(a);
+    q.setFromUnitVectors(up, d.clone().normalize());
+    m4.compose(mid, q, new THREE.Vector3(1, d.length(), 1));
+    cm.setMatrixAt(i, m4);
+    jm.setMatrixAt(i, m4);          // joint sphere at the base of each segment
+  });
+  organismGroup.add(cm); organismGroup.add(jm);
+  // membrane
+  membraneMat = new THREE.ShaderMaterial({
+    transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uPulse: { value: 0 } },
+    vertexShader: `
+      uniform float uTime; varying vec3 vN; varying vec3 vP;
+      void main() {
+        vec3 p = position;
+        float n = sin(p.x*0.012+uTime*0.5)*cos(p.y*0.014+uTime*0.35)*cos(p.z*0.011+uTime*0.4);
+        p += normal * n * 9.0;
+        vP = p; vN = normal;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uPulse; varying vec3 vN; varying vec3 vP;
+      void main() {
+        vec3 V = normalize(cameraPosition - vP);
+        float fres = pow(1.0 - abs(dot(V, normalize(vN))), 2.4);
+        float hex = 0.75 + 0.25 * sin(vP.x*0.08) * sin(vP.y*0.08) * sin(vP.z*0.08);
+        vec3 c = vec3(0.48, 0.12, 0.63) * (0.35 + fres * 1.4) * hex + vec3(0.6) * fres * 0.5;
+        gl_FragColor = vec4(c, (0.05 + fres * 0.3) * hex);
+      }`,
+  });
+  organismGroup.add(new THREE.Mesh(new THREE.SphereGeometry(470, 96, 96), membraneMat));
+  const mcps = nodes.filter(n => n.type === "mcp" || n.type === "plugin");
+  const mm = new THREE.InstancedMesh(new THREE.OctahedronGeometry(9, 0),
+    new THREE.MeshStandardMaterial({ color: 0x3a1218, emissive: 0xb64253, emissiveIntensity: 0.55, metalness: 0.65, roughness: 0.25 }), mcps.length);
+  mcps.forEach((n, i) => {
+    const a = hash(n.id) * Math.PI * 2;
+    const ph = Math.acos(2 * hash(n.id + "p") - 1);
+    const r = 470;
+    const p = new THREE.Vector3(r * Math.sin(ph) * Math.cos(a), r * Math.cos(ph) * 0.55, r * Math.sin(ph) * Math.sin(a));
+    m4.makeTranslation(p.x, p.y, p.z);
+    mm.setMatrixAt(i, m4);
+    POS.organism.set(n.id, p);
+  });
+  organismGroup.add(mm);
+  const exts = nodes.filter(n => n.type === "external");
+  const em = new THREE.InstancedMesh(new THREE.OctahedronGeometry(11, 0),
+    new THREE.MeshStandardMaterial({ color: 0x2a3346, emissive: 0x54627e, emissiveIntensity: 0.5, wireframe: true }), exts.length);
+  exts.forEach((n, i) => {
+    const a = i / exts.length * Math.PI * 2 + 0.4;
+    const p = new THREE.Vector3(Math.cos(a) * 560, (hash(n.id) - 0.5) * 150, Math.sin(a) * 560);
+    m4.makeTranslation(p.x, p.y, p.z);
+    em.setMatrixAt(i, m4);
+    POS.organism.set(n.id, p);
+  });
+  organismGroup.add(em);
+  // evolution loop
+  const stages = [
+    ["DREAM", "#6a5bff", "dreamers mine transcripts, propose"],
+    ["DISSENT", "#ff5a5a", "dissenter attacks the proposal"],
+    ["DECIDE", "#e8ecf8", "Josh rules; proposal-decide records"],
+    ["BUILD", "#00a37a", "builders + squad-build construct"],
+    ["VERIFY", "#ffb454", "evidence + verify-recipe prove it"],
+    ["LEARN", "#56d364", "gardener patches doctrine + memory"],
+  ];
+  const evo = new THREE.Group();
+  evo.rotation.x = 0.32;
+  const R1 = 148, segA = Math.PI * 2 / 6;
+  stages.forEach(([name, hex, role], i) => {
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(R1, 3.2, 12, 48, segA * 0.86),
+      new THREE.MeshStandardMaterial({ color: 0x111122, emissive: new THREE.Color(hex), emissiveIntensity: 0.55, roughness: 0.4 }));
+    arc.rotation.x = Math.PI / 2;
+    arc.rotation.z = i * segA;
+    evo.add(arc);
+    const node = new THREE.Mesh(new THREE.IcosahedronGeometry(6, 0),
+      new THREE.MeshStandardMaterial({ color: 0x111122, emissive: new THREE.Color(hex), emissiveIntensity: 1.0, flatShading: true }));
+    node.position.set(Math.cos((i + 0.02) * segA) * R1, 0, Math.sin((i + 0.02) * segA) * R1);
+    evo.add(node);
+    const cv = document.createElement("canvas");
+    cv.width = 512; cv.height = 96;
+    const ctx = cv.getContext("2d");
+    ctx.font = "600 40px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = hex;
+    ctx.fillText(name, 10, 30);
+    ctx.font = "26px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "rgba(154,167,192,0.9)";
+    let roleTxt = role;
+    while (ctx.measureText(roleTxt).width > 480 && roleTxt.length > 4) roleTxt = roleTxt.slice(0, -2) + "…";
+    ctx.fillText(roleTxt, 10, 68);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: 0.9, depthWrite: false }));
+    spr.scale.set(78, 14.6, 1);
+    spr.position.set(Math.cos((i + 0.02) * segA) * (R1 + 34), 10, Math.sin((i + 0.02) * segA) * (R1 + 34));
+    evo.add(spr);
+  });
+  const circPts = [];
+  for (let i = 0; i <= 240; i++) {
+    const a = i / 240 * Math.PI * 2;
+    circPts.push(new THREE.Vector3(Math.cos(a) * R1, 0, Math.sin(a) * R1));
+  }
+  const circCurve = new THREE.CatmullRomCurve3(circPts, true);
+  evo.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(circPts),
+    new THREE.LineBasicMaterial({ color: 0x3a4a6a, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending })));
+  const N = 160, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  pGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const parts = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    size: 4.5, vertexColors: true, transparent: true, opacity: 0.95,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  evo.add(parts);
+  organismGroup.add(evo);
+  evoData = { curve: circCurve, parts, count: N, stages };
+  scene.add(organismGroup);
+}
+
+// callouts
+const svg = document.getElementById("leaderSvg");
+let calloutsBuilt = false;
+function buildCallouts() {
+  if (calloutsBuilt) return;
+  calloutsBuilt = true;
+  for (const c of ORG_CALLOUTS) {
+    const el = document.createElement("div");
+    el.className = "callout";
+    el.innerHTML = `<div class="t"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.c};margin-right:6px;box-shadow:0 0 6px ${c.c}"></span><span style="color:var(--ink)">${c.t}</span></div><div class="d">${c.d}</div>`;
+    document.body.appendChild(el);
+    c.el = el;
+    c.line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    c.line.style.stroke = c.c; c.line.style.strokeWidth = "1"; c.line.style.opacity = "0.5";
+    svg.appendChild(c.line);
+  }
+}
+const vTmp = new THREE.Vector3();
+function updateCallouts(show) {
+  if (show) buildCallouts();
+  const W = innerWidth;
+  const spotlight = tourIdx >= 0;   // during the tour, tourShow owns visibility
+  for (let i = 0; i < ORG_CALLOUTS.length; i++) {
+    const c = ORG_CALLOUTS[i];
+    if (!c.el || !c.line) continue;
+    if (spotlight) continue;
+    if (!show) { c.el.style.display = "none"; c.line.style.display = "none"; continue; }
+    vTmp.copy(c.pos).project(camera);
+    const x = (vTmp.x + 1) / 2 * W, y = (-vTmp.y + 1) / 2 * innerHeight;
+    const side = i % 2 === 0 ? -1 : 1;
+    const slot = Math.floor(i / 2);
+    const cx = side === 1 ? W - 285 : 24;
+    const cy = (side === 1 ? 275 : 215) + slot * 112;   // right column clears the layers panel
+    c.el.style.left = cx + "px";
+    c.el.style.top = cy + "px";
+    c.line.setAttribute("x1", x); c.line.setAttribute("y1", y);
+    c.line.setAttribute("x2", side === 1 ? cx : cx + 262); c.line.setAttribute("y2", cy + 12);
+    const vis = vTmp.z < 1;
+    c.el.style.opacity = vis ? "1" : "0";
+    c.line.style.opacity = vis ? "0.5" : "0";
+  }
+}
+
+// ================================================================ KB fractal (mycelium v2)
+// Colony model: each source is its own colony on a ring around the corpus
+// root. Colonies are pre-grown on load: tapered curved hyphae (instanced),
+// 3 depth levels, doc-density glowing at tips. Separation by territory.
+let kbGroup = null, kbSources = [], kbClusters = [], kbBlooms = [], kbTrail = [];
+let hyphaMesh = null, hyphaIdx = 0, tipSprites = null;
+const HYPHA_CAP = 9000;                       // instanced segment budget
+const FAMILIES = [
+  [/^(docs|changelog|hubs|blog|inspiration|apis-guru|workato)/, 0x4379d3],
+  [/^confluence/, 0x00929d],
+  [/^(github|langchain|hf-|mcp)/, 0x644fb1],
+  [/^(slack|rss|webcrawl)/, 0x00a37a],
+  [/^(pwc|dbt|snowflake|n8n|camel|temporal|prefect|restate|terraform|figshare|atlassian|claude|eip)/, 0xe6a817],
+];
+const familyColor = name => (FAMILIES.find(([re]) => re.test(name)) || [null, 0x8c9bb0])[1];
+
+function buildKBRoot() {
+  kbGroup = new THREE.Group();
+  kbGroup.add(new THREE.Mesh(new THREE.IcosahedronGeometry(34, 3),
+    new THREE.MeshStandardMaterial({ color: 0x0a1830, emissive: 0x4379d3, emissiveIntensity: 0.8, flatShading: true, metalness: 0.4 })));
+  kbGroup.add(new THREE.Mesh(new THREE.IcosahedronGeometry(42, 1),
+    new THREE.MeshBasicMaterial({ color: 0x7fa6e8, wireframe: true, transparent: true, opacity: 0.18 })));
+  scene.add(kbGroup);
+}
+
+// instanced tapered hypha: one InstancedMesh holds every segment in the colony
+const hyphaGeo = new THREE.CylinderGeometry(0.55, 1.0, 1, 8, 1, true); // unit, tapered, smooth
+hyphaGeo.translate(0, 0.5, 0);                 // base at origin, grows along +Y
+const hyphaMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+const hyphaColor = new THREE.Color();
+
+function ensureHyphaMesh(total) {
+  if (hyphaMesh) return;
+  hyphaMesh = new THREE.InstancedMesh(hyphaGeo, hyphaMat, Math.min(total, HYPHA_CAP));
+  hyphaMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(Math.min(total, HYPHA_CAP) * 3), 3);
+  hyphaMesh.frustumCulled = false;
+  kbGroup.add(hyphaMesh);
+}
+
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0);
+// grow one curved hypha as N tapering segments; returns tip
+function growHypha(from, dir, length, depth, maxDepth, colorHex, w0) {
+  const segs = 4;
+  let p = from.clone(), d = dir.clone();
+  const tipJitter = 0.28 + depth * 0.1;
+  for (let i = 0; i < segs; i++) {
+    if (hyphaIdx >= HYPHA_CAP) return p;
+    const segLen = length / segs;
+    const nd = d.clone().add(new THREE.Vector3(
+      (hash(from.x + "" + i + "x" + depth) - 0.5) * tipJitter,
+      (hash(from.y + "" + i + "y" + depth) - 0.5) * tipJitter,
+      (hash(from.z + "" + i + "z" + depth) - 0.5) * tipJitter).normalize().multiplyScalar(0.45)).normalize();
+    const next = p.clone().add(nd.clone().multiplyScalar(segLen));
+    _q.setFromUnitVectors(_up, nd);
+    const w = w0 * (1 - (i / segs) * 0.62);      // taper
+    _m4.compose(p, _q, new THREE.Vector3(w, segLen, w));
+    hyphaMesh.setMatrixAt(hyphaIdx, _m4);
+    // depth gradient: tips lighter + hotter
+    hyphaColor.setHex(colorHex).multiplyScalar(0.55).lerp(new THREE.Color(0xe8f2ff), (depth / maxDepth) * 0.7 + (i / segs) * 0.2);
+    hyphaMesh.instanceColor.setXYZ(hyphaIdx, hyphaColor.r, hyphaColor.g, hyphaColor.b);
+    hyphaIdx++;
+    p = next; d = nd;
+  }
+  return p;
+}
+
+// doc-density glow at a tip
+const tipMat = () => new THREE.SpriteMaterial({ map: glowTexture, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending });
+let ringTexture = null;
+function makeRingTexture() {
+  const cv = document.createElement("canvas"); cv.width = cv.height = 128;
+  const ctx = cv.getContext("2d");
+  ctx.strokeStyle = "rgba(255,255,255,1)";
+  for (const [r, w] of [[46, 3.5], [58, 2]]) {
+    ctx.lineWidth = w;
+    ctx.beginPath(); ctx.arc(64, 64, r, 0, 7); ctx.stroke();
+  }
+  return new THREE.CanvasTexture(cv);
+}
+let glowTexture = null;
+function makeGlowTexture() {
+  const cv = document.createElement("canvas"); cv.width = cv.height = 64;
+  const ctx = cv.getContext("2d");
+  const gr = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.35, "rgba(255,255,255,0.5)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(cv);
+}
+
+function colonyLabel(text, colorHex, pos, big, target = null) {
+  const host = target || kbGroup;
+  const cv = document.createElement("canvas");
+  cv.width = 512; cv.height = 72;
+  const ctx = cv.getContext("2d");
+  const size = big ? 36 : 27;
+  ctx.font = `600 ${size}px ui-monospace, Menlo, monospace`;
+  let txt = text;
+  while (ctx.measureText(txt).width > 486 && txt.length > 4) txt = txt.slice(0, -2) + "…";
+  ctx.fillStyle = "rgba(232,236,248,0.92)";
+  ctx.textBaseline = "middle";
+  ctx.fillText(txt, 8, 36);
+  // family color chip
+  ctx.fillStyle = "#" + colorHex.toString(16).padStart(6, "0");
+  ctx.fillRect(0, 16, 5, 40);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: big ? 0.95 : 0.6, depthWrite: false }));
+  spr.scale.set(big ? 66 : 46, big ? 9.3 : 6.5, 1);
+  spr.position.copy(pos);
+  host.add(spr);
+}
+
+async function kbLoadSources() {
+  glowTexture = makeGlowTexture();
+  const srcs = nodes.filter(n => n.type === "kb-source").sort((a, b) => (b.docs || 0) - (a.docs || 0));
+  const N = srcs.length;
+  const ringR = 330;
+  ensureHyphaMesh(N * 240);
+  const stats = document.getElementById("stats");
+  // colonies: golden-angle ring placement, big sources get wide wedges
+  let angle = 0;
+  for (let i = 0; i < N; i++) {
+    const n = srcs[i];
+    const wedge = (0.10 + 0.16 * Math.min(1, Math.log10((n.docs || 1) + 1) / 4.5));
+    const a = angle + wedge / 2;
+    angle += wedge * (Math.PI * 2) * 0.55;     // overlap-safe: total < 2π across sizes
+    if (i === N - 1) angle = Math.PI * 2;      // last colony wraps to full circle start
+    const colonyA = a % (Math.PI * 2);
+    const col = familyColor(n.label);
+    // colony root: on the ring; trunk rises from the corpus center out to it
+    const root = new THREE.Vector3(Math.cos(colonyA) * ringR, (hash(n.id + "h") - 0.5) * 50, Math.sin(colonyA) * ringR);
+    growHypha(new THREE.Vector3(0, 0, 0),
+      root.clone().normalize().add(new THREE.Vector3(0, 0.28, 0)).normalize(),
+      root.length(), 0, 2, col, 7.5);
+    // colony fan: topic branches radiate outward from colony root
+    const clusters = await (async () => {
+      const url = STATIC_MODE ? `data/kb/${encodeURIComponent(n.label)}.json` : `/kb/source?name=${encodeURIComponent(n.label)}`;
+      const r = await (await fetch(url)).json();
+      return r.clusters || [];
+    })();
+    const top = clusters.slice(0, 90);         // separation: 90 arms max per colony
+    const fan = 2.6;                            // radians of fan spread
+    const baseDir = root.clone().sub(new THREE.Vector3(0, 0, 0)).normalize();
+    const perp = new THREE.Vector3(-baseDir.z, 0, baseDir.x);
+    top.forEach((cl, k) => {
+      const t = top.length === 1 ? 0.5 : k / (top.length - 1);
+      const spread = (t - 0.5) * fan;
+      const dir = baseDir.clone().multiplyScalar(Math.cos(spread * 0.55))
+        .add(perp.clone().multiplyScalar(Math.sin(spread)))
+        .add(new THREE.Vector3(0, (hash(cl.prefix) - 0.35) * 0.75, 0)).normalize();
+      const len = 34 + Math.min(74, Math.log2(cl.count + 1) * 15);
+      // level-2 hypha from colony root, tapering
+      const tip = growHypha(root, dir, len, 1, 3, col, 3.4);
+      // a few big clusters sprout one more level (sub-branches)
+      let tipPos = tip;
+      if (cl.count > 150) {
+        tipPos = growHypha(tip, dir.clone().add(perp.clone().multiplyScalar(hash(cl.prefix + "s") - 0.5)).normalize(), len * 0.55, 2, 3, col, 1.8);
+      }
+      kbClusters.push({ label: cl.prefix, docs: cl.count, src: n.label, _tip: tipPos, _col: col });
+      // doc-density glow at tips with meaningful counts
+      if (cl.count >= 12) {
+        const spr = new THREE.Sprite(tipMat());
+        spr.material.color = new THREE.Color(col).lerp(new THREE.Color(0xffffff), 0.15);
+        spr.material.opacity = 0.55;
+        const s = 3.5 + Math.min(13, Math.log2(cl.count + 1) * 1.9);
+        spr.scale.set(s, s, 1);
+        spr.position.copy(tipPos);
+        kbGroup.add(spr);
+      }
+    });
+    // territory halo: a faint tilted ring bounding the colony's fan
+    {
+      const ringPts = [];
+      const rr = 150;
+      for (let k = 0; k <= 48; k++) {
+        const a2 = k / 48 * Math.PI * 2;
+        ringPts.push(new THREE.Vector3(root.x + Math.cos(a2) * rr, root.y + Math.sin(a2) * rr * 0.36, root.z + Math.sin(a2) * rr));
+      }
+      kbGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ringPts),
+        new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.10, blending: THREE.AdditiveBlending, depthWrite: false })));
+    }
+    colonyLabel(`${n.label} · ${(n.docs / 1000).toFixed(1)}k`, col,
+      root.clone().add(new THREE.Vector3(Math.cos(colonyA) * 60, 58, Math.sin(colonyA) * 60)), i < 12);
+    kbSources.push(n);
+    if (i % 6 === 0) stats.textContent = `growing colonies… ${i + 1}/${N}`;
+    await new Promise(r => setTimeout(r, 0));   // keep the frame alive during growth
+  }
+  hyphaMesh.instanceMatrix.needsUpdate = true;
+  hyphaMesh.instanceColor.needsUpdate = true;
+  stats.textContent = "";
+  kbStats();
+}
+function kbStats() {
+  const st = document.getElementById("stats");
+  st.textContent = "";
+  st.appendChild(document.createTextNode(`${kbSources.length} colonies · ${hyphaIdx} hypha segments · ~103k docs · click a tip to bloom its documents`));
+}
+async function kbGrowTopics(src) { return src; }   // colonies pre-grown; kept for API compat
+async function kbBloomDocs(cl) {
+  let r;
+  if (STATIC_MODE) {
+    r = await (await fetch(`data/kb/${encodeURIComponent(cl.src)}.json`)).json();
+    r = { docs: (r.docsByPrefix || {})[cl.label] || [] };
+  } else {
+    r = await (await fetch(`/kb/cluster?source=${encodeURIComponent(cl.src)}&prefix=${encodeURIComponent(cl.label)}`)).json();
+  }
+  if (r.error || !r.docs) return;
+  const N = r.docs.length;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const base = cl._tip.clone();
+  const c = new THREE.Color(cl._col);
+  r.docs.forEach((d, i) => {
+    const key = d.url || d.title;
+    const th = hash(key + "t") * Math.PI * 2;
+    const ph = Math.acos(2 * hash(key + "p") - 1);
+    const rr = 4 + 16 * Math.pow(hash(key + "r"), 0.5);
+    pos.set([base.x + rr * Math.sin(ph) * Math.cos(th), base.y + rr * Math.cos(ph), base.z + rr * Math.sin(ph) * Math.sin(th)], i * 3);
+    const f = 0.5 + hash(key + "c") * 0.6;
+    col.set([c.r * f, c.g * f, c.b * f], i * 3);
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({
+    size: 2.6, vertexColors: true, transparent: true, opacity: 0.9,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  kbGroup.add(pts);
+  kbBlooms.push(pts);
+  kbCrumb();
+}
+const crumbEl = document.getElementById("crumb");
+function kbCrumb() {
+  if (!kbTrail.length) { crumbEl.classList.remove("show"); return; }
+  crumbEl.classList.add("show");
+  crumbEl.innerHTML = '<a data-i="-1">corpus</a>' +
+    kbTrail.map((t, i) => `<span class="sep">›</span><a data-i="${i}">${t.label}</a>`).join("");
+  crumbEl.querySelectorAll("a").forEach(a => a.onclick = () => kbCollapse(+a.dataset.i));
+}
+async function kbCollapse(level) {
+  kbTrail = kbTrail.slice(0, Math.max(0, level + 1));
+  for (const b of kbBlooms) kbGroup.remove(b);
+  kbBlooms.length = 0;
+  kbCrumb();
+}
+const SAP_N = 300;
+let sapGeo;
+function buildSap() {
+  const pos = new Float32Array(SAP_N * 3), col = new Float32Array(SAP_N * 3);
+  sapGeo = new THREE.BufferGeometry();
+  sapGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  sapGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  kbGroup.add(new THREE.Points(sapGeo, new THREE.PointsMaterial({
+    size: 3.4, vertexColors: true, transparent: true, opacity: 0.8,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending })));
+}
+function stepSap() {
+  if (!kbSources.length) return;
+  const pos = sapGeo.getAttribute("position").array;
+  const col = sapGeo.getAttribute("color").array;
+  const tt = performance.now() / 1000;
+  for (let i = 0; i < SAP_N; i++) {
+    const s = kbSources[i % kbSources.length];
+    const phase = (tt * 0.06 + i / SAP_N) % 1;
+    const colonyRoot = new THREE.Vector3(Math.cos(hash(s.id) * Math.PI * 2) * 330, 0, Math.sin(hash(s.id) * Math.PI * 2) * 330);
+    pos[i * 3] = colonyRoot.x * (1 - phase);
+    pos[i * 3 + 1] = colonyRoot.y * (1 - phase);
+    pos[i * 3 + 2] = colonyRoot.z * (1 - phase);
+    const f = Math.sin(phase * Math.PI) * 0.7;
+    col[i * 3] = 0.26 * f; col[i * 3 + 1] = 0.63 * f; col[i * 3 + 2] = 0.83 * f;
+  }
+  sapGeo.getAttribute("position").needsUpdate = true;
+  sapGeo.getAttribute("color").needsUpdate = true;
+}
+function kbPick(e) {
+  let best = null, bestD = 24;
+  const v = new THREE.Vector3();
+  for (const n of kbClusters) {
+    if (!n._tip) continue;
+    v.copy(n._tip).project(camera);
+    if (v.z > 1) continue;
+    const d = Math.hypot((v.x + 1) / 2 * innerWidth - e.clientX, (-v.y + 1) / 2 * innerHeight - e.clientY);
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best;
+}
+// ================================================================ flow
+let flowParticles = null, flowData = null;
+function buildFlow() {
+  const weighted = [];
+  for (const l of links) {
+    const h = Math.max(heat[l.s] || 0, heat[l.t] || 0);
+    const w = 1 + Math.round(h * 8);
+    for (let i = 0; i < w; i++) weighted.push(l);
+  }
+  const nP = Math.min(5200, Math.max(weighted.length, 400));
+  const pT = new Float32Array(nP), pSpeed = new Float32Array(nP);
+  const pEdge = new Array(nP);
+  for (let i = 0; i < nP; i++) {
+    pEdge[i] = weighted[i % weighted.length];
+    pT[i] = Math.random();
+    pSpeed[i] = 0.002 + Math.random() * 0.004;
+  }
+  const pos = new Float32Array(nP * 3), col = new Float32Array(nP * 3), sz = new Float32Array(nP);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+  g.setAttribute("aSize", new THREE.BufferAttribute(sz, 1));
+  flowParticles = new THREE.Points(g, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `attribute vec3 aColor; attribute float aSize; varying vec3 vC;
+      void main(){ vC=aColor; vec4 mv=modelViewMatrix*vec4(position,1.0);
+      gl_PointSize=aSize*(600.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader: `varying vec3 vC;
+      void main(){ float d=length(gl_PointCoord-0.5)*2.0; if(d>1.0) discard;
+      float g2=pow(smoothstep(1.0,0.0,d),2.2);
+      gl_FragColor=vec4((vC*0.9+vec3(0.35))*g2, g2*0.9); }`,
+  }));
+  flowParticles.frustumCulled = false;
+  scene.add(flowParticles);
+  flowData = { pT, pSpeed, pEdge, pos, col, sz };
+}
+function stepFlow() {
+  if (!flowData) return;
+  const { pT, pSpeed, pEdge, pos, col, sz } = flowData;
+  for (let i = 0; i < pT.length; i++) {
+    pT[i] += pSpeed[i] * (0.4 + (heat[pEdge[i].s] || 0) * 2.2);
+    if (pT[i] >= 1) pT[i] = 0;
+    const a = POS.flow.get(pEdge[i].s), b = POS.flow.get(pEdge[i].t);
+    if (!a || !b) { pos[i * 3 + 1] = 99999; continue; }
+    const h = Math.max(heat[pEdge[i].s] || 0, heat[pEdge[i].t] || 0);
+    pos[i * 3] = a.x + (b.x - a.x) * pT[i];
+    pos[i * 3 + 1] = a.y + (b.y - a.y) * pT[i];
+    pos[i * 3 + 2] = a.z + (b.z - a.z) * pT[i];
+    const c = nodeColor.get(pEdge[i].t) || nodeColor.get(pEdge[i].s);
+    const f = 0.25 + h * 1.3;
+    col[i * 3] = c.r * f; col[i * 3 + 1] = c.g * f; col[i * 3 + 2] = c.b * f;
+    sz[i] = 2.2 + h * 4;
+  }
+  flowParticles.geometry.getAttribute("position").needsUpdate = true;
+  flowParticles.geometry.getAttribute("aColor").needsUpdate = true;
+  flowParticles.geometry.getAttribute("aSize").needsUpdate = true;
+}
+
+// ================================================================ view registry
+const VIEWS = {
+  anatomy:   { cam: [150, 60, 1450], atlastPts: true },
+  organism:  { cam: [0, 200, 830], atlastPts: false, organ: true },
+  kbfractal: { cam: [0, 420, 1020], atlastPts: false, fractal: true },
+};
+const shellLabels = { anatomy: [], organism: [] };
+function makeShellLabels(viewKey, entries) {
+  for (const e of entries) {
+    const el = document.createElement("div");
+    el.className = "shell-label";
+    el.textContent = e.text;
+    document.body.appendChild(el);
+    shellLabels[viewKey].push({ el, pos: e.pos });
+  }
+}
+let labelFrame = 0;
+function updateShellLabels() {
+  if (++labelFrame % 5) return;
+  for (const key of Object.keys(shellLabels)) {
+    const show = key === activeView;
+    for (const rec of shellLabels[key]) {
+      if (!show) { rec.el.style.display = "none"; continue; }
+      vTmp.copy(rec.pos).project(camera);
+      rec.el.style.display = vTmp.z < 1 ? "block" : "none";
+      rec.el.style.left = ((vTmp.x + 1) / 2 * innerWidth) + "px";
+      rec.el.style.top = ((-vTmp.y + 1) / 2 * innerHeight) + "px";
+    }
+  }
+}
+
+// ================================================================ switching
+let cameraFly = null;
+function switchView(v) {
+  if (v === activeView) return;
+  activeView = v;
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.v === v));
+  const cfg = VIEWS[v];
+  if (cfg.atlastPts) {
+    atlasPoints.visible = true;
+    if (!morph) {
+      // morph point positions from current on-screen layout into the target
+      const target = POS[v];
+      const from = atlasPosArr.slice();
+      const to = new Float32Array(nodes.length * 3);
+      nodes.forEach((n, i) => {
+        const p = target.get(n.id);
+        if (p) to.set([p.x, p.y, p.z], i * 3);
+      });
+      morph = { from, to, t: 0 };
+    }
+  } else {
+    atlasPoints.visible = false;
+    morph = null;
+  }
+  for (const k of Object.keys(edgeGroups)) edgeGroups[k].visible = (k === v && cfg.atlastPts);
+  if (flowParticles) flowParticles.visible = false;
+  if (organismGroup) organismGroup.visible = !!cfg.organ;
+  if (kbGroup) kbGroup.visible = !!cfg.fractal;
+  updateCallouts(!!cfg.organ);
+  crumbEl.classList.toggle("show", !!cfg.fractal && kbTrail.length > 0);
+  document.getElementById("clusterView").classList.toggle("hidden", v !== "cluster");
+  document.getElementById("tourBtn").style.display = v === "organism" ? "" : "none";
+  if (tourIdx >= 0 && v !== "organism") tourExit();
+  if (v === "cluster") document.getElementById("clusterFrame").src = "cluster-legacy.html";
+  for (const id of ["layers", "search", "detail", "hint", "tooltip", "directory"])
+    document.getElementById(id).classList.toggle("hidden", v === "cluster");
+  cameraFly = { from: camera.position.clone(), to: new THREE.Vector3(...cfg.cam), t: 0 };
+}
+
+// ================================================================ shared UI
+const detail = document.getElementById("detail");
+let dimSave = null;
+function isolate(n) {
+  if (!dimSave) dimSave = { dims: atlasDims.slice() };
+  const chain = new Set();
+  let cur = n, guard = 0;
+  while (cur && guard++ < 10) { chain.add(cur.id); const p = parentOf(cur); if (!p) break; cur = byId.get(p); }
+  for (const l of links) if (l.s === n.id || l.t === n.id) { chain.add(l.s); chain.add(l.t); }
+  nodes.forEach((nn, i) => atlasDims[i] = chain.has(nn.id) ? 1 : 0.1);
+  atlasPoints.geometry.getAttribute("aDim").needsUpdate = true;
+}
+function restoreDims() {
+  if (!dimSave) return;
+  atlasDims.set(dimSave.dims);
+  atlasPoints.geometry.getAttribute("aDim").needsUpdate = true;
+  dimSave = null;
+}
+function select(n) {
+  selected = n;
+  detail.classList.add("show");
+  document.getElementById("dlabel").textContent = n.label;
+  document.getElementById("dtag").textContent = n.type;
+  document.getElementById("dtag").style.color = (TYPES[n.type] || TYPES.surface).c;
+  document.getElementById("ddesc").textContent = n.desc || "";
+  const p = document.getElementById("dpath");
+  p.innerHTML = "";
+  if (n.path && n.path.startsWith("/")) {
+    const a = document.createElement("a");
+    a.href = "file://" + n.path; a.textContent = n.path; a.target = "_blank";
+    p.appendChild(a);
+  } else if (n.url) {
+    const a = document.createElement("a");
+    a.href = n.url; a.textContent = n.url; a.target = "_blank";
+    p.appendChild(a);
+  }
+  const meta = document.getElementById("dmeta");
+  meta.innerHTML = "";
+  for (const [k, v] of Object.entries(n)) {
+    if (["id", "type", "label", "desc", "path", "url", "_tip", "_col", "_cell", "_cellIdx", "_cellPhase"].includes(k) || !v) continue;
+    const s = document.createElement("span");
+    s.textContent = `${k}: ${v}`;
+    meta.appendChild(s);
+  }
+  // lineage breadcrumb: HEART > MIND > FLEET > node (why it lives where it lives)
+  const lin = [];
+  {
+    let cur = n, guard = 0;
+    while (cur && guard++ < 10) {
+      lin.unshift(cur.label);
+      const p = parentOf(cur);
+      if (!p) break;
+      cur = byId.get(p);
+    }
+  }
+  if (activeView !== "cluster") isolate(n);
+  const lc = document.getElementById("lineage");
+  lc.textContent = "";
+  const tierTag = document.createElement("span");
+  tierTag.className = "type-tag";
+  const tL = LAYERS.find(l => l.id === layerOf(n));
+  tierTag.textContent = tL.name.toUpperCase();
+  tierTag.style.color = tL.c;
+  lc.appendChild(tierTag);
+  lc.appendChild(document.createTextNode("  " + lin.join("  ›  ")));
+  const conns = document.getElementById("dconns");
+  conns.innerHTML = "";
+  const rel = links.filter(l => l.s === n.id || l.t === n.id).slice(0, 40);
+  for (const l of rel) {
+    const other = byId.get(l.s === n.id ? l.t : l.s);
+    if (!other) continue;
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.cssText = `width:7px;height:7px;border-radius:50%;background:${(TYPES[other.type] || TYPES.surface).c};flex:none;align-self:center`;
+    li.appendChild(dot);
+    li.appendChild(document.createTextNode(other.label));
+    const k = document.createElement("span");
+    k.className = "k"; k.textContent = l.kind;
+    li.appendChild(k);
+    li.onclick = () => select(other);
+    conns.appendChild(li);
+  }
+}
+function clearDetail() { selected = null; detail.classList.remove("show"); restoreDims(); }
+document.getElementById("dclose").onclick = clearDetail;
+addEventListener("keydown", e => {
+  if (e.key === "Escape") clearDetail();
+  if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+});
+const q = document.getElementById("q"), qr = document.getElementById("qr");
+q.addEventListener("input", () => {
+  const s = q.value.toLowerCase().trim();
+  qr.innerHTML = "";
+  if (s.length < 2) return;
+  const hits = nodes.filter(n => n.label.toLowerCase().includes(s)).slice(0, 12);
+  for (const n of hits) {
+    const r = document.createElement("div");
+    r.className = "r";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = (TYPES[n.type] || TYPES.surface).c;
+    r.appendChild(dot);
+    r.appendChild(document.createTextNode(n.label));
+    r.onclick = () => {
+      select(n);
+      qr.innerHTML = ""; q.value = "";
+      const m = POS[activeView];
+      const p = m && m.get(n.id);
+      if (p) cameraFly = { from: camera.position.clone(), to: p.clone().add(new THREE.Vector3(40, 40, 90)), t: 0, target: p };
+    };
+    qr.appendChild(r);
+  }
+});
+function buildLayersUI() {
+  const box = document.getElementById("layers");
+  box.innerHTML = '<div class="cl">Layers</div>';
+  const counts = {};
+  nodes.forEach(n => { const L = layerOf(n); counts[L] = (counts[L] || 0) + 1; });
+  for (const L of LAYERS) {
+    const row = document.createElement("div");
+    row.className = "lrow" + (offLayers.has(L.id) ? " off" : "");
+    const dot = document.createElement("span");
+    dot.className = "dot"; dot.style.background = L.c; dot.style.color = L.c;
+    row.appendChild(dot);
+    row.appendChild(document.createTextNode(L.name));
+    const n = document.createElement("span");
+    n.className = "n"; n.textContent = counts[L.id] || 0;
+    row.appendChild(n);
+    row.onclick = () => { offLayers.has(L.id) ? offLayers.delete(L.id) : offLayers.add(L.id); applyDims(); buildLayersUI(); };
+    box.appendChild(row);
+  }
+  let tg = document.getElementById("dirToggle");
+  if (!tg) {
+    tg = document.createElement("button");
+    tg.id = "dirToggle";
+    tg.textContent = "☰ directory";
+    tg.onclick = () => {
+      const d = document.getElementById("directory");
+      d.classList.toggle("show");
+      if (d.classList.contains("show")) buildDirectory("");
+    };
+    box.appendChild(tg);
+    const dir = document.createElement("div");
+    dir.id = "directory";
+    dir.className = "panel";
+    dir.innerHTML = '<input id="dirq" placeholder="filter…" style="width:100%;background:transparent;border:none;outline:none;color:var(--ink);font:inherit;font-size:11px"><div id="dirlist" style="margin-top:6px"></div>';
+    document.body.appendChild(dir);
+    document.getElementById("dirq").addEventListener("input", e => buildDirectory(e.target.value));
+  }
+}
+function buildDirectory(filter) {
+  const list = document.getElementById("dirlist");
+  list.textContent = "";
+  const f = (filter || "").toLowerCase();
+  nodes
+    .filter(n => !f || n.label.toLowerCase().includes(f))
+    .slice(0, 300)
+    .forEach(n => {
+      const row = document.createElement("div");
+      row.className = "drow";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      const lc = LAYERS.find(l => l.id === layerOf(n));
+      dot.style.cssText = `width:7px;height:7px;border-radius:50%;background:${lc.c};flex:none`;
+      row.appendChild(dot);
+      row.appendChild(document.createTextNode(n.label));
+      const ty = document.createElement("span");
+      ty.className = "ty";
+      ty.textContent = `${n.type}${n.docs ? " · " + n.docs : ""}`;
+      row.appendChild(ty);
+      row.onclick = () => {
+        select(n);
+        const p = POS[activeView] && POS[activeView].get(n.id);
+        if (p) cameraFly = { from: camera.position.clone(), to: p.clone().add(new THREE.Vector3(40, 40, 90)), t: 0, target: p };
+      };
+      list.appendChild(row);
+    });
+}
+const selLabel = document.createElement("div");
+selLabel.className = "nlabel";
+document.body.appendChild(selLabel);
+setInterval(() => {
+  if (!selected || activeView === "cluster") { selLabel.style.display = "none"; return; }
+  const m = POS[activeView];
+  const p = m ? m.get(selected.id) : null;
+  if (!p) { selLabel.style.display = "none"; return; }
+  vTmp.copy(p).project(camera);
+  if (vTmp.z > 1) { selLabel.style.display = "none"; return; }
+  selLabel.style.display = "block";
+  selLabel.style.left = ((vTmp.x + 1) / 2 * innerWidth) + "px";
+  selLabel.style.top = ((-vTmp.y + 1) / 2 * innerHeight) + "px";
+  selLabel.textContent = selected.label;
+}, 200);
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => switchView(t.dataset.v));
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+// ================================================================ picking
+const tooltip = document.getElementById("tooltip");
+let hoverLift = null, hoverLiftBase = 0;
+function pickAt(e) {
+  if (activeView === "kbfractal") return kbPick(e);
+  const m = POS[activeView];
+  if (!m) return null;
+  let best = null, bestD = 24;   // >=24px nearest-point hit target (interaction.md)
+  const v = new THREE.Vector3();
+  for (const n of nodes) {
+    const p = m.get(n.id);
+    if (!p) continue;
+    v.copy(p).project(camera);
+    if (v.z > 1) continue;
+    const d = Math.hypot((v.x + 1) / 2 * innerWidth - e.clientX, (-v.y + 1) / 2 * innerHeight - e.clientY);
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best;
+}
+addEventListener("pointermove", e => {
+  if (activeView === "cluster") { tooltip.style.display = "none"; return; }
+  const n = pickAt(e);
+  // hovered mark lifts (interaction.md): brief size pulse on the hovered node
+  if (hoverLift !== n) {
+    if (hoverLift) { const i = nodes.indexOf(hoverLift); if (i >= 0) atlasSizes[i] = hoverLiftBase; }
+    hoverLift = n;
+    if (n) { const i = nodes.indexOf(n); hoverLiftBase = atlasSizes[i]; atlasSizes[i] = hoverLiftBase * 1.35; }
+    if (atlasPoints.visible) atlasPoints.geometry.getAttribute("aSize").needsUpdate = true;
+  }
+  if (!n) { tooltip.style.display = "none"; return; }
+  const BLURB = {
+    central: "part of the doctrine or the machinery of the mind",
+    agent: "one of the 12 autonomous workers",
+    skill: "a trained reflex — loads on trigger",
+    script: "an automatic worker — no thought, no tokens",
+    hook: "a reflex gate wired into the DNA",
+    knowledge: "a shelf of the memory organs",
+    kdoc: "a page of the connectome",
+    memory: "an experience the organism remembers",
+    mcp: "a sense organ — the only way to touch the world",
+    plugin: "an extension pack",
+    cron: "a heartbeat of the autonomic system",
+    surface: "a window Josh reads",
+    kb: "the digested external corpus",
+    "kb-source": "a colony of the external corpus",
+    external: "the environment the organism serves",
+  };
+  document.getElementById("tt-type").textContent = BLURB[n.type] || n.type;
+  document.getElementById("tt-label").textContent = n.label;   // role leads, name follows
+  tooltip.style.display = "block";
+  tooltip.style.left = (e.clientX + 14) + "px";
+  tooltip.style.top = (e.clientY + 10) + "px";
+});
+renderer.domElement.addEventListener("click", e => {
+  if (activeView === "cluster") return;
+  const n = pickAt(e);
+  if (n) select(n); else clearDetail();
+});
+renderer.domElement.addEventListener("dblclick", async e => {
+  if (activeView === "cluster") return;
+  const n = pickAt(e);
+  if (!n) return;
+  if (activeView === "kbfractal") {
+    if (n && n.src) {
+      kbTrail = [{ type: "source", label: n.src, src: n.src }, { type: "cluster", label: n.label, src: n.src }];
+      await kbBloomDocs(n);
+    }
+    return;
+  }
+  if (n.type === "kb-source") {
+    switchView("kbfractal");
+    kbTrail = [{ type: "source", label: n.label, src: n.label }];
+    const src = kbSources.find(s => s.label === n.label);
+    if (src) await kbGrowTopics(src);
+  } else {
+    const p = POS[activeView].get(n.id);
+    if (p) cameraFly = { from: camera.position.clone(), to: p.clone().add(new THREE.Vector3(40, 40, 90)), t: 0, target: p };
+  }
+});
+
+// ================================================================ main loop
+let t = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  t += 0.016;
+  if (activeView === "cluster") return;
+  if (morph) {
+    morph.t = Math.min(1, morph.t + 0.025);
+    const ease = 1 - Math.pow(1 - morph.t, 3);
+    for (let i = 0; i < morph.from.length; i++)
+      atlasPosArr[i] = morph.from[i] + (morph.to[i] - morph.from[i]) * ease;
+    atlasPoints.geometry.getAttribute("position").needsUpdate = true;
+    if (morph.t >= 1) morph = null;
+  }
+  if (cameraFly) {
+    cameraFly.t = Math.min(1, cameraFly.t + 0.03);
+    const ease = 1 - Math.pow(1 - cameraFly.t, 3);
+    camera.position.lerpVectors(cameraFly.from, cameraFly.to, ease);
+    if (cameraFly.target) controls.target.lerp(cameraFly.target, ease);
+    if (cameraFly.t >= 1) cameraFly = null;
+  }
+  if (activeView === "flow") stepFlow();
+  if (activeView === "kbfractal") stepSap();
+  if (activeView === "anatomy" && edgeGroups.anatomy) {
+    edgeGroups.anatomy.traverse(o => { if (o.material && o.material.uniforms && o.material.uniforms.uTime) o.material.uniforms.uTime.value = t; });
+    if (ANIM_SKIN) ANIM_SKIN.uniforms.uTime.value = t;
+    if (AORTA) {
+      const BEAT = Math.pow(Math.max(0, Math.sin(t * 2.6)), 8);   // ~2.4s heart rhythm
+      const pos = AORTA.geo.getAttribute("position").array;
+      const col = AORTA.geo.getAttribute("color").array;
+      const sz = AORTA.geo.getAttribute("size").array;
+      // 6 boluses: clustered packets with comet trails (head + tail pairs)
+      const dwell = u => 1.0 / (1.0 + 2.2 * Math.exp(-14 * Math.min(u, 1 - u) * 4));   // dwell inside organs
+      for (let i = 0; i < AORTA.N / 2; i++) {
+        const packet = Math.floor(i / 70) / 6;
+        const uBase = (t * (0.030 + 0.05 * BEAT) * 3 + packet) % 1;   // Flush accelerates x3
+        for (let half = 0; half < 2; half++) {
+          const j = i * 2 + half;
+          const u = (uBase + (i % 70) / 70 * 0.055 + half * 0.012) % 1;
+          const p = AORTA.curve.getPointAt(u);
+          pos[j * 3] = p.x; pos[j * 3 + 1] = p.y; pos[j * 3 + 2] = p.z;
+          const seg = Math.floor(u * 9) % 9;
+          const c = new THREE.Color(LAYERS[seg].c).lerp(new THREE.Color(0xffffff), 0.3 + BEAT * 0.3);
+          col[j * 3] = c.r; col[j * 3 + 1] = c.g; col[j * 3 + 2] = c.b;
+          sz[j] = (half === 0 ? 6.5 : 2.6) * ((seg === 0 ? 1.5 : 1.0) + BEAT * 0.4);   // head + taper
+        }
+      }
+      AORTA.geo.getAttribute("position").needsUpdate = true;
+      AORTA.geo.getAttribute("color").needsUpdate = true;
+      AORTA.geo.getAttribute("size").needsUpdate = true;
+      if (heartLight) heartLight.intensity = 1.6 + BEAT * 4.5;
+      if (ANIM_SKIN) {
+        ANIM_SKIN.uniforms.uBeat.value = BEAT;
+        // The Flush: one full-body wave every 24s (2.4s travel)
+        const wu = (t % 24) / 2.4;
+        ANIM_SKIN.uniforms.uWave.value = wu < 1 ? wu : -1;
+        if (wu < 1) heartLight.intensity = 12;
+      }
+    }
+  }
+  if (activeView === "organism") {
+    membraneMat.uniforms.uTime.value = t;
+    organismGroup.children[0].material.uniforms.uTime.value = t;
+    organismGroup.children[1].rotation.y += 0.002;
+    const m4 = fleetData.m4;
+    for (const n of fleetData.agents) {
+      const h = heat[n.id] || 0;
+      m4.makeTranslation(n._cell.x, n._cell.y + Math.sin(t * 0.7 + n._cellPhase) * 7, n._cell.z);
+      const s = 1 + h * 0.35;
+      m4.multiply(new THREE.Matrix4().makeScale(s, s, s));
+      fleetData.cells.setMatrixAt(n._cellIdx, m4);
+    }
+    fleetData.cells.instanceMatrix.needsUpdate = true;
+    const pos = evoData.parts.geometry.getAttribute("position").array;
+    const col = evoData.parts.geometry.getAttribute("color").array;
+    for (let i = 0; i < evoData.count; i++) {
+      const tt = (t * 0.055 + i / evoData.count) % 1;
+      const p = evoData.curve.getPoint(tt);
+      pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
+      const c = new THREE.Color(evoData.stages[Math.floor(tt * 6)][1]);
+      const f = 0.7 + Math.sin(tt * Math.PI * 12) * 0.3;
+      col[i * 3] = c.r * f; col[i * 3 + 1] = c.g * f; col[i * 3 + 2] = c.b * f;
+    }
+    evoData.parts.geometry.getAttribute("position").needsUpdate = true;
+    evoData.parts.geometry.getAttribute("color").needsUpdate = true;
+  }
+  if (activeView === "anatomy" && organismGroup === null || true) {
+    // breathing sway on the anatomy group (the skin group is edgeGroups.anatomy)
+    if (edgeGroups.anatomy) edgeGroups.anatomy.rotation.y = Math.sin(t * 0.11) * 0.06 + Math.sin(t * 0.043) * 0.03;
+  }
+  controls.update();
+  composer.render();
+  updateShellLabels();
+  if (activeView === "organism") updateCallouts(true);
+}
+
+// ================================================================ guided tour
+const TOUR = [
+  { tier: 0, t: "THE HEART", c: "#e8ecf8", cam: [0, 80, 320], focus: new THREE.Vector3(0, 420, 0),
+    body: "<b>Josh.</b> One person. The entire organism exists to multiply one person's judgment and output. Everything below is tissue; this is the consciousness it serves." },
+  { tier: 1, t: "THE MIND", c: "#ca6a10", cam: [200, 160, 560], focus: new THREE.Vector3(0, 300, 0),
+    body: "<b>The session loop + doctrine — neurons firing and the DNA.</b> A Claude session is a neuron: prompt in, thought, action, verification, out. CLAUDE.md is the genome Josh authored — the constitution every neuron loads at birth. The gossip bus and mission control hang here too: the brainstem, carrying signals between everything." },
+  { tier: 2, t: "REFLEXES & REGULATION", c: "#9b3876", cam: [380, 40, 760], focus: new THREE.Vector3(0, 180, 0),
+    body: "<b>Skills and hooks — muscle memory and reflex gates.</b> 54 skills are trained procedures that load on trigger, no thought required. 11 hooks are reflex arcs wired directly into the DNA: touch a forbidden surface and the hand pulls back before the brain even knows." },
+  { tier: 3, t: "THE HANDS — THE FLEET", c: "#00a37a", cam: [-380, 260, 760], focus: new THREE.Vector3(0, 40, 0),
+    body: "<b>12 autonomous agents — the immune and endocrine system.</b> Watchers (watchdog, evidence), dreamers, curators (gardener, librarian), killers of bad ideas (dissenter, red-team). Sessions dispatch them; they regulate the organism without being asked." },
+  { tier: 4, t: "THE METABOLISM", c: "#644fb1", cam: [520, -60, 900], focus: new THREE.Vector3(0, -110, 0),
+    body: "<b>120 scripts + crons — the autonomic nervous system.</b> Heartbeat, digestion, pupillary reflex: sweeps, audits, backups, digests. Zero thought, zero tokens. If it needs judgment it spawns a model; if not, it never does." },
+  { tier: 5, t: "THE MEMORY ORGANS", c: "#00929d", cam: [-520, -160, 980], focus: new THREE.Vector3(0, -260, 0),
+    body: "<b>The connectome + the microbiome.</b> The knowledge tree, 194 memory files, and the 103k-document KB corpus the agents digest nightly. And here is the loop that makes it alive: every night the dreamers re-read the day, and the gardener writes what was learned back into doctrine and memory — <b>sleep consolidation</b>, literally. Tomorrow's mind wakes smarter." },
+  { tier: 6, t: "THE CORPUS", c: "#4379d3", cam: [420, -200, 1060], focus: new THREE.Vector3(0, -330, 0),
+    body: "<b>The gut — 103k digested external documents.</b> 41 colonies of external knowledge, each a source: Workato's own docs, GitHub, Confluence, snowflake, research. The sync daemon digests new material nightly and the KB digest feeds a summary to every agent each morning. The organism reads constantly." },
+  { tier: 7, t: "THE SENSES", c: "#b64253", cam: [420, -300, 1060], focus: new THREE.Vector3(0, -400, 0),
+    body: "<b>17 MCP servers — sensory organs and limbs.</b> The only membrane between the organism and the world. Nothing inside touches outside except through here: eyes (Jira, Slack), hands (Workato), the gut that digests external knowledge." },
+  { tier: 8, t: "THE WORLD", c: "#54627e", cam: [0, -200, 1750], focus: new THREE.Vector3(0, -450, 0),
+    body: "<b>Workato, Jira, Slack, Google, Workday — the environment.</b> The organism's purpose: Josh's judgment, multiplied into the world, every day and every night — and every night the organism returns smarter than it left." },
+];
+let tourIdx = -1, tourTimer = null;
+const tourCard = document.getElementById("tourCard");
+
+function tourShow(i) {
+  tourIdx = i;
+  const stop = TOUR[i];
+  document.getElementById("tour-step").textContent = `Atlas tour · stop ${i + 1} of ${TOUR.length}`;
+  document.getElementById("tour-title-t").textContent = stop.t;
+  document.getElementById("tour-dot").style.background = stop.c;
+  document.getElementById("tour-dot").style.boxShadow = `0 0 8px ${stop.c}`;
+  document.getElementById("tour-body").innerHTML = stop.body;
+  document.getElementById("tour-prog").textContent = "click next, or wait — it advances itself";
+  document.getElementById("tour-next").textContent = i === TOUR.length - 1 ? "finish ✓" : "next →";
+  tourCard.classList.add("show");
+  // spotlight: show only this stop's callout, enlarged
+  updateCallouts(true);
+  if (activeView === "organism") {
+    const wantTitle = i < 6 ? TOUR[i].t.replace("THE NUCLEUS", "CORE / NUCLEUS") : "EVOLUTION LOOP";
+    ORG_CALLOUTS.forEach(c => {
+      const shown = c.t === wantTitle;
+      c.el.classList.toggle("collapsed", !shown);
+      c.el.classList.toggle("spotlight", shown);
+      c.el.style.display = "block";
+      c.line.style.display = "block";
+    });
+  }
+  // anatomy tour: fly to the tier's real position in the body; spotlight = tier isolate
+  if (stop.tier !== undefined && SLAB[stop.tier]) {
+    const sl = SLAB[stop.tier];
+    const focus = new THREE.Vector3(sl.cx, LAYERS[stop.tier].floor, sl.cz);
+    cameraFly = { from: camera.position.clone(), to: focus.clone().add(new THREE.Vector3(0, 170, 760)), t: 0, target: focus };
+    if (!dimSave) dimSave = { dims: atlasDims.slice() };
+    nodes.forEach((nn, i2) => atlasDims[i2] = layerOf(nn) === LAYERS[stop.tier].id ? 1 : 0.12);
+    atlasPoints.geometry.getAttribute("aDim").needsUpdate = true;
+  } else if (activeView === "organism") {
+    const wantTitle = i < 6 ? TOUR[i].t.replace("THE NUCLEUS", "CORE / NUCLEUS") : "EVOLUTION LOOP";
+    ORG_CALLOUTS.forEach(c => {
+      const shown = c.t === wantTitle;
+      c.el.classList.toggle("collapsed", !shown);
+      c.el.classList.toggle("spotlight", shown);
+      c.el.style.display = "block";
+      c.line.style.display = "block";
+    });
+  }
+  clearTimeout(tourTimer);
+  tourTimer = setTimeout(() => tourNext(), 6000 + stop.body.length * 30);
+}
+function tourNext() {
+  if (tourIdx + 1 >= TOUR.length) return tourExit("done — that's the whole organism");
+  tourShow(tourIdx + 1);
+}
+function tourExit(msg) {
+  clearTimeout(tourTimer);
+  tourCard.classList.remove("show");
+  restoreDims();
+  document.getElementById("tourBtn").style.display = "";
+  document.getElementById("tourBtn").textContent = "▶ Take the tour";
+  updateCallouts(true);
+}
+document.getElementById("tourBtn").onclick = () => {
+  document.getElementById("tourBtn").style.display = "none";
+  switchView("anatomy");
+  setTimeout(() => tourShow(0), 300);
+};
+document.getElementById("tour-next").onclick = tourNext;
+document.getElementById("tour-prev").onclick = () => tourShow(Math.max(0, tourIdx - 1));
+document.getElementById("tour-exit").onclick = () => tourExit();
+addEventListener("keydown", e => { if (e.key === "Escape" && tourIdx >= 0) tourExit(); });
+
+// ================================================================ boot
+async function boot() {
+  let g;
+  try {
+    g = await (await fetch(STATIC_MODE ? "data/graph.json" : "/graph.json")).json();
+  } catch (e) {
+    document.getElementById("stats").textContent =
+      "graph.json didn't load — serve this folder (python3 harness-graph.py serve) and reload";
+    return;
+  }
+  nodes = g.nodes; links = g.links;
+  byId = new Map(nodes.map(n => [n.id, n]));
+  const PLATFORMS = [
+    ["workato", ["workato", "airo", "wt"]],
+    ["atlassian", ["atlassian"]],
+    ["slack", ["slack"]],
+    ["google", ["google", "gslides", "gmail", "org-chart"]],
+    ["workday", ["workday"]],
+    ["model gateway", ["brain", "duckduckgo", "fireworks", "playwright", "registry"]],
+  ];
+  for (const [name, keys] of PLATFORMS) {
+    const id = "external:" + name;
+    const n = { id, type: "external", label: name };
+    nodes.push(n); byId.set(id, n);
+    for (const nn of nodes) {
+      if (nn.type !== "mcp") continue;
+      if (keys.some(k => nn.id.toLowerCase().includes(k))) links.push({ s: nn.id, t: id, kind: "reaches" });
+    }
+  }
+  nodes.forEach(n => {
+    nodeLayer.set(n.id, layerOf(n));
+    nodeColor.set(n.id, new THREE.Color(LAYERS.find(l => l.id === layerOf(n)).c));
+  });
+  try { heat = (await (await fetch(STATIC_MODE ? "data/activity.json" : "/activity")).json()).heat || {}; } catch { heat = {}; }
+  POS.anatomy = layoutAnatomy();
+  POS.organism = new Map();
+  makeAtlasPoints();
+  writeLayoutToBuffer("anatomy");
+  edgeGroups.anatomy = edgesAnatomy();
+  scene.add(edgeGroups.anatomy);
+  buildOrganism();
+  organismGroup.visible = false;   // anatomy is the default view
+  buildKBRoot();
+  kbGroup.visible = false;
+  buildSap();
+  kbLoadSources();   // pre-grows all 41 colonies in the background
+  buildFlow();
+  buildLayersUI();
+
+  {
+    const st = document.getElementById("stats");
+    st.textContent = "";
+    const b1 = document.createElement("b"); b1.textContent = `${nodes.length} nodes`;
+    const b2 = document.createElement("b"); b2.textContent = `${links.length} links`;
+    st.appendChild(b1);
+    st.appendChild(document.createTextNode(" · "));
+    st.appendChild(b2);
+    st.appendChild(document.createTextNode(` · crawled ${g.meta.generated}`));
+  }
+  camera.position.set(...VIEWS.anatomy.cam);
+  if (VIEWS.anatomy.fov) { camera.fov = VIEWS.anatomy.fov; camera.updateProjectionMatrix(); }
+  controls.target.set(0, -30, 0);
+  atlasPoints.visible = true;
+  for (const k of Object.keys(edgeGroups)) edgeGroups[k].visible = (k === "anatomy");
+  if (organismGroup) organismGroup.visible = false;
+  updateCallouts(false);
+  animate();
+  {
+    const chip = document.createElement("button");
+    chip.textContent = "New here? Take the 60-second tour →";
+    chip.style.cssText = "position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:35;font:inherit;font-size:11.5px;padding:7px 16px;border-radius:8px;border:1px solid #00a37a;background:rgba(0,163,122,0.14);color:#e8ecf8;cursor:pointer;backdrop-filter:blur(10px)";
+    chip.onclick = () => { chip.remove(); tourShow(0); };
+    document.body.appendChild(chip);
+    setTimeout(() => chip.remove(), 30000);
+  }
+}
+boot();
+window.__atlas = {
+  anatomyState: () => {
+    let maxR = 0, nan = 0;
+    for (const n of nodes) {
+      const p = POS.anatomy.get(n.id);
+      if (!p) { nan++; continue; }
+      if (!isFinite(p.x + p.y + p.z)) nan++;
+      maxR = Math.max(maxR, Math.abs(p.x), Math.abs(p.y), Math.abs(p.z));
+    }
+    return { maxR: maxR.toFixed(0), nan, nodes: nodes.length, layered: POS.anatomy.size };
+  },
+  kbState: () => ({ sources: kbSources.length, clusters: kbClusters.length, blooms: kbBlooms.length }),
+  kbBloom: (srcLabel, prefix) => {
+    const cl = kbClusters.find(c => c.src === srcLabel && (!prefix || c.label.includes(prefix)));
+    if (!cl) return "no cluster";
+    kbTrail = [{ type: "source", label: cl.src, src: cl.src }, { type: "cluster", label: cl.label, src: cl.src }];
+    return kbBloomDocs(cl);
+  },
+  kbFirstCluster: srcLabel => { const c = kbClusters.find(x => x.src === srcLabel); return c ? c.label : null; },
+  fly: i => { const v = VIEWS[Object.keys(VIEWS)[i]]; },
+};
+</script>
+</body>
+</html>
