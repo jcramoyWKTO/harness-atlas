@@ -506,7 +506,6 @@ function layoutAnatomy() {
   return m;
 }
 const SLAB = {};
-const TIER_DEF = [];   // per-tier plate/edge/post materials, for tour spotlight dimming
 let ORGAN_CHAIN = [];   // [{tier, center}] heart->world; drives the unified circulation
 
 // anatomy plate: slabs hug their grids; bundled connectors parent->child rows
@@ -522,57 +521,8 @@ function edgesAnatomy() {
     const sl = SLAB[t];
     if (!sl) continue;
     const L = LAYERS[t];
-    const w = sl.w + 90, d = sl.d + 70;
-    // living membrane: noise-displaced organic shell hugging the organ
-    const rmaj = Math.max(w, d) / 2;
-    const memb = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48),
-      new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, side: THREE.FrontSide, blending: THREE.AdditiveBlending,
-        uniforms: { uTime: { value: 0 },
-                    uTint: { value: new THREE.Color(L.c).lerp(new THREE.Color(0x8a93b8), 0.35) },
-                    uScale: { value: new THREE.Vector3(rmaj + 12, 70, (d / w) * rmaj + 12) } },
-        vertexShader: `
-          uniform float uTime; uniform vec3 uScale; varying vec3 vN; varying vec3 vP;
-          float n3(vec3 p){ return sin(p.x*2.1+uTime*0.4)*cos(p.y*1.7-uTime*0.3)*0.5 + sin(p.z*2.6+uTime*0.25)*0.5; }
-          void main(){
-            vec3 p = position * uScale;
-            p += normal * n3(position * 3.0) * 6.0;
-            vP = p; vN = normal;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-          }`,
-        fragmentShader: `
-          uniform vec3 uTint; varying vec3 vN; varying vec3 vP;
-          void main(){
-            vec3 V = normalize(cameraPosition - vP);
-            float fres = pow(1.0 - abs(dot(V, normalize(vN))), 2.0);
-            gl_FragColor = vec4(uTint * (0.25 + fres * 0.9), 0.08 + fres * 0.22);
-          }`,
-      }));
-    memb.position.set(sl.cx, L.floor, sl.cz);
-    g.add(memb);
-    // v14 definition: solid tinted plate under the tier + glowing edge outline —
-    // each layer reads as its own floating island (Josh: must be clear what is what when presenting)
-    {
-      const plateMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(L.c), transparent: true, opacity: 0.09, depthWrite: false });
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(w, 5, d), plateMat);
-      plate.position.set(sl.cx, L.floor - 42, sl.cz);
-      g.add(plate);
-      const edgeMat = new THREE.LineBasicMaterial({ color: new THREE.Color(L.c), transparent: true, opacity: 0.65, depthWrite: false });
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(plate.geometry), edgeMat);
-      edges.position.copy(plate.position);
-      g.add(edges);
-      TIER_DEF[t] = { plateMat, edgeMat, base: { plate: 0.09, edge: 0.65 } };
-      // corner posts: four vertical struts dropping from the plate corners — reads as a real platform
-      const hw = w / 2, hd = d / 2;
-      const postMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(L.c), transparent: true, opacity: 0.35, depthWrite: false });
-      TIER_DEF[t].postMat = postMat;
-      TIER_DEF[t].base.post = 0.35;
-      for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(3, 70, 3), postMat);
-        post.position.set(sl.cx + sx * (hw - 6), L.floor - 77, sl.cz + sz * (hd - 6));
-        g.add(post);
-      }
-    }
+    // v15: no membranes, no plates, no posts (Josh: hated the table look) —
+    // the floors are spread wide instead, the layers breathe as separate levels
     const cv = document.createElement("canvas");
     cv.width = 1024; cv.height = 256;
     const ctx = cv.getContext("2d");
@@ -2115,15 +2065,6 @@ function tourShow(i) {
     if (!dimSave) dimSave = { dims: atlasDims.slice() };
     nodes.forEach((nn, i2) => atlasDims[i2] = layerOf(nn) === LAYERS[stop.tier].id ? 1 : 0.12);
     atlasPoints.geometry.getAttribute("aDim").needsUpdate = true;
-    // spotlight the plates too: active tier's platform stays lit, the rest fade
-    for (let tt = 0; tt < TIER_DEF.length; tt++) {
-      const td = TIER_DEF[tt];
-      if (!td) continue;
-      const on = tt === stop.tier;
-      td.plateMat.opacity = on ? td.base.plate : td.base.plate * 0.25;
-      td.edgeMat.opacity = on ? td.base.edge : td.base.edge * 0.22;
-      if (td.postMat) td.postMat.opacity = on ? td.base.post : td.base.post * 0.22;
-    }
   } else if (activeView === "organism") {
     const wantTitle = i < 6 ? TOUR[i].t.replace("THE NUCLEUS", "CORE / NUCLEUS") : "EVOLUTION LOOP";
     ORG_CALLOUTS.forEach(c => {
@@ -2142,12 +2083,6 @@ function tourNext() {
 function tourExit(msg) {
   tourCard.classList.remove("show");
   restoreDims();
-  for (const td of TIER_DEF) {
-    if (!td) continue;
-    td.plateMat.opacity = td.base.plate;
-    td.edgeMat.opacity = td.base.edge;
-    if (td.postMat) td.postMat.opacity = td.base.post;
-  }
   document.getElementById("tourBtn").style.display = "";
   document.getElementById("tourBtn").textContent = "▶ Take the tour";
   updateCallouts(true);
