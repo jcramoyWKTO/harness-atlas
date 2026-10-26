@@ -133,7 +133,7 @@
 
 <div id="hud" class="panel">
   <h1>HARNESS ATLAS</h1>
-  <div class="sub" style="font-size:11.5px;color:var(--ink)">One human. 12 agents. 70 skills. 120 scripts. 103k-doc memory. 17 senses. One organism.</div>
+  <div class="sub" style="font-size:11.5px;color:var(--ink)">One human. 12 agents. 70 skills. 120 scripts. 103k-doc memory. 17 hands. One organism.</div>
   <div class="sub" id="stats">loading…</div>
   <button id="tourBtn">▶ Take the tour</button>
   <div id="tabs">
@@ -212,11 +212,11 @@ const LAYERS = [   // v14 color script: bioluminescent warm core -> cool periphe
   { id: "heart",       name: "The Heart",              nature: "the brain — consciousness",          c: "#ffd9a0", r: 0,   floor: 480 },
   { id: "mind",        name: "The Mind",               nature: "neurons firing — the session loop",  c: "#ffb454", r: 0,   floor: 295 },
   { id: "reflexes",    name: "Reflexes & Regulation",  nature: "muscle memory + the brainstem",      c: "#ff5a8a", r: 0,   floor: 110 },
-  { id: "hands",       name: "The Hands (Fleet)",      nature: "the immune + endocrine system",      c: "#35e0a1", r: 0,   floor: -75 },
+  { id: "blood",       name: "The Blood (Fleet)",      nature: "circulating cells — the fleet, in organic terms", c: "#35e0a1", r: 0,   floor: -75 },
   { id: "metabolism",  name: "The Metabolism",         nature: "the autonomic nervous system",       c: "#8a7cf0", r: 0,   floor: -260 },
   { id: "memory",      name: "Memory Organs",          nature: "the connectome — what it remembers", c: "#22d3ee", r: 0,   floor: -445 },
   { id: "corpus",      name: "The Corpus",             nature: "the gut — 103k digested external documents", c: "#5b8cff", r: 0, floor: -630 },
-  { id: "senses",      name: "The Senses",             nature: "sensory organs and limbs",           c: "#f2557a", r: 0,   floor: -840 },
+  { id: "hands",       name: "The Hands",              nature: "the limbs that reach the world — connect, execute", c: "#f2557a", r: 0,   floor: -840 },
   { id: "world",       name: "The World",              nature: "the environment",                    c: "#7a8db4", r: 0,   floor: -1050 },
 ];
 const R = Object.fromEntries(LAYERS.map(l => [l.id, l.r]));
@@ -251,12 +251,12 @@ function layerOf(n) {
   if (n.id === "central:claude-md" || n.id === "node:session") return "mind";
   if (n.type === "session-neuron") return "mind";
   if (n.type === "skill" || n.type === "hook") return "reflexes";
-  if (n.type === "agent") return "hands";
+  if (n.type === "agent") return "blood";
   if (n.id === "central:bus" || n.id === "central:mission-control" || n.type === "cron") return "mind";
   if (n.type === "script" || n.type === "plugin") return "metabolism";
   if (["kb", "kb-source", "kb-cluster", "doc"].includes(n.type)) return "corpus";
   if (["memory", "kdoc", "knowledge", "surface", "central:memory-index", "central:index"].includes(n.type) || n.id === "central:index") return "memory";
-  if (n.type === "mcp") return "senses";
+  if (n.type === "mcp") return "hands";
   if (n.type === "external") return "world";
   return "memory";
 }
@@ -345,7 +345,7 @@ function nodeRadius(n) {
   if (n.docs) r += Math.min(6, Math.log2(n.docs + 1) * 1.1);
   return r;
 }
-const TIER_BOOST = { heart: 7.0, mind: 2.0, hands: 1.8, senses: 1.7, world: 2.3 };
+const TIER_BOOST = { heart: 7.0, mind: 2.0, blood: 1.8, hands: 1.7, world: 2.3 };
 function makeAtlasPoints() {
   const N = nodes.length;
   atlasPosArr = new Float32Array(N * 3);
@@ -410,7 +410,7 @@ function layoutAnatomy() {
     ["node:session",       "The Mind — the session loop",      "mind"],
     ["node:memory-organs", "The Memory Organs",                "memory"],
     ["node:metabolism",    "The Metabolism",                   "metabolism"],
-    ["node:senses",        "The Senses — MCP",                 "senses"],
+    ["node:senses",        "The Hands — MCP",                  "hands"],
     ["node:corpus",        "The Corpus — the gut",             "corpus"],
   ];
   for (const [id, label, tier] of HUBS) {
@@ -2045,16 +2045,16 @@ const TOUR = [
     body: "<b>The session loop + doctrine — neurons firing and the DNA.</b> A Claude session is a neuron: prompt in, thought, action, verification, out. CLAUDE.md is the genome Josh authored — the constitution every neuron loads at birth. The gossip bus and mission control hang here too: the brainstem, carrying signals between everything." },
   { tier: 2, t: "REFLEXES & REGULATION", c: "#9b3876", cam: [380, 40, 760], focus: new THREE.Vector3(0, 110, 0),
     body: "<b>Skills and hooks — muscle memory and reflex gates.</b> 54 skills are trained procedures that load on trigger, no thought required. 11 hooks are reflex arcs wired directly into the DNA: touch a forbidden surface and the hand pulls back before the brain even knows." },
-  { tier: 3, t: "THE HANDS — THE FLEET", c: "#00a37a", cam: [-380, 260, 760], focus: new THREE.Vector3(0, -75, 0),
-    body: "<b>12 autonomous agents — the immune and endocrine system.</b> Watchers (watchdog, evidence), dreamers, curators (gardener, librarian), killers of bad ideas (dissenter, red-team). Sessions dispatch them; they regulate the organism without being asked." },
+  { tier: 3, t: "THE BLOOD — THE FLEET", c: "#00a37a", cam: [-380, 260, 760], focus: new THREE.Vector3(0, -75, 0),
+    body: "<b>12 autonomous agents — the blood. The fleet, in organic terms.</b> Cells circulating through the body to wherever the work is: watchers (watchdog, evidence), dreamers, curators (gardener, librarian), killers of bad ideas (dissenter, red-team). Signals dispatch them; they act without being asked." },
   { tier: 4, t: "THE METABOLISM", c: "#644fb1", cam: [520, -60, 900], focus: new THREE.Vector3(0, -260, 0),
     body: "<b>120 scripts + crons — the autonomic nervous system.</b> Heartbeat, digestion, pupillary reflex: sweeps, audits, backups, digests. Zero thought, zero tokens. If it needs judgment it spawns a model; if not, it never does." },
   { tier: 5, t: "THE MEMORY ORGANS", c: "#00929d", cam: [-520, -160, 980], focus: new THREE.Vector3(0, -445, 0),
     body: "<b>The connectome + the microbiome.</b> The knowledge tree, 194 memory files, and the 103k-document KB corpus the agents digest nightly. And here is the loop that makes it alive: every night the dreamers re-read the day, and the gardener writes what was learned back into doctrine and memory — <b>sleep consolidation</b>, literally. Tomorrow's mind wakes smarter." },
   { tier: 6, t: "THE CORPUS", c: "#4379d3", cam: [420, -200, 1060], focus: new THREE.Vector3(0, -630, 0),
     body: "<b>The gut — 103k digested external documents.</b> 41 colonies of external knowledge, each a source: Workato's own docs, GitHub, Confluence, snowflake, research. The sync daemon digests new material nightly and the KB digest feeds a summary to every agent each morning. The organism reads constantly." },
-  { tier: 7, t: "THE SENSES", c: "#b64253", cam: [420, -300, 1060], focus: new THREE.Vector3(0, -840, 0),
-    body: "<b>17 MCP servers — sensory organs and limbs.</b> The only membrane between the organism and the world. Nothing inside touches outside except through here: eyes (Jira, Slack), hands (Workato), the gut that digests external knowledge." },
+  { tier: 7, t: "THE HANDS", c: "#b64253", cam: [420, -300, 1060], focus: new THREE.Vector3(0, -840, 0),
+    body: "<b>17 MCP servers — the hands.</b> The only limbs that reach past the skin. Nothing inside touches the outside except through here: they sense (Jira, Slack), they grip and execute what the rest of the system decides (Workato), they feed the gut that digests external knowledge." },
   { tier: 8, t: "THE WORLD", c: "#54627e", cam: [0, -200, 1750], focus: new THREE.Vector3(0, -1050, 0),
     body: "<b>Workato, Jira, Slack, Google, Workday — the environment.</b> The organism's purpose: Josh's judgment, multiplied into the world, every day and every night — and every night the organism returns smarter than it left." },
 ];
