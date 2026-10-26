@@ -521,8 +521,35 @@ function edgesAnatomy() {
     const sl = SLAB[t];
     if (!sl) continue;
     const L = LAYERS[t];
-    // v15: no membranes, no plates, no posts (Josh: hated the table look) —
-    // the floors are spread wide instead, the layers breathe as separate levels
+    const w = sl.w + 90, d = sl.d + 70;
+    // living membrane: noise-displaced organic shell hugging the organ
+    // (Josh: keep the membranes — they carry the layer separation; NO plates/tabletops)
+    const rmaj = Math.max(w, d) / 2;
+    const memb = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48),
+      new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, side: THREE.FrontSide, blending: THREE.AdditiveBlending,
+        uniforms: { uTime: { value: 0 },
+                    uTint: { value: new THREE.Color(L.c).lerp(new THREE.Color(0x8a93b8), 0.35) },
+                    uScale: { value: new THREE.Vector3(rmaj + 12, 70, (d / w) * rmaj + 12) } },
+        vertexShader: `
+          uniform float uTime; uniform vec3 uScale; varying vec3 vN; varying vec3 vP;
+          float n3(vec3 p){ return sin(p.x*2.1+uTime*0.4)*cos(p.y*1.7-uTime*0.3)*0.5 + sin(p.z*2.6+uTime*0.25)*0.5; }
+          void main(){
+            vec3 p = position * uScale;
+            p += normal * n3(position * 3.0) * 6.0;
+            vP = p; vN = normal;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+          }`,
+        fragmentShader: `
+          uniform vec3 uTint; varying vec3 vN; varying vec3 vP;
+          void main(){
+            vec3 V = normalize(cameraPosition - vP);
+            float fres = pow(1.0 - abs(dot(V, normalize(vN))), 2.0);
+            gl_FragColor = vec4(uTint * (0.25 + fres * 0.9), 0.08 + fres * 0.22);
+          }`,
+      }));
+    memb.position.set(sl.cx, L.floor, sl.cz);
+    g.add(memb);
     const cv = document.createElement("canvas");
     cv.width = 1024; cv.height = 256;
     const ctx = cv.getContext("2d");
